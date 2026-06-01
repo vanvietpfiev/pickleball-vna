@@ -24,6 +24,12 @@
 .DS_Store
 *.pem
 
+# Claude Code internal
+.claude/
+
+# Excel lock files
+~$*
+
 # debug
 npm-debug.log*
 yarn-debug.log*
