@@ -131,7 +131,10 @@ export default function TournamentDetail({ params }: { params: Promise<{ id: str
   if (!tournament) return <p className="text-gray-500">Không tìm thấy giải đấu.</p>;
 
   const { config: rawConfig, status, matches } = tournament;
-  const isRoundRobin = rawConfig?.mode === 'round_robin';
+  // Detect round-robin: check config.mode first, fallback to match ID pattern
+  const isRoundRobin =
+    rawConfig?.mode === 'round_robin' ||
+    (matches.length > 0 && (rawConfig?.groups ?? []).length === 0 && matches[0]?.id?.startsWith('rr_'));
   const participants = rawConfig?.participants ?? [];
   const groups = rawConfig?.groups ?? [];
   const format = rawConfig?.format ?? { advancePerGroup: 2, hasThirdPlace: false };
