@@ -8,11 +8,17 @@ import Avatar from '@/components/Avatar';
 import { useAuth } from '@/components/AuthProvider';
 
 const STATUS_CONFIG = {
-  setup:       { label: 'Chuẩn bị',   color: 'bg-gray-100 text-gray-600',    dot: 'bg-gray-400' },
-  group_stage: { label: 'Vòng bảng',  color: 'bg-blue-100 text-blue-700',    dot: 'bg-blue-500' },
-  knockout:    { label: 'Knockout',    color: 'bg-orange-100 text-orange-700', dot: 'bg-orange-500' },
-  finished:    { label: 'Kết thúc',   color: 'bg-green-100 text-green-700',  dot: 'bg-green-500' },
+  setup:       { label: 'Chuẩn bị',    color: 'bg-gray-100 text-gray-600',     dot: 'bg-gray-400' },
+  upcoming:    { label: 'Sắp diễn ra', color: 'bg-indigo-100 text-indigo-700', dot: 'bg-indigo-400' },
+  group_stage: { label: 'Vòng bảng',   color: 'bg-blue-100 text-blue-700',     dot: 'bg-blue-500' },
+  knockout:    { label: 'Knockout',     color: 'bg-orange-100 text-orange-700', dot: 'bg-orange-500' },
+  finished:    { label: 'Kết thúc',    color: 'bg-green-100 text-green-700',   dot: 'bg-green-500' },
 } as const;
+
+function getDisplayStatus(t: { status: string; date: string }) {
+  if (t.status === 'setup' && new Date(t.date) > new Date()) return 'upcoming';
+  return t.status as keyof typeof STATUS_CONFIG;
+}
 
 export default function TournamentListPage() {
   const { isLoggedIn } = useAuth();
@@ -237,9 +243,10 @@ export default function TournamentListPage() {
   };
 
   const filteredTournaments = tournaments.filter((t) => {
-    if (filter === 'upcoming') return t.status === 'setup';
-    if (filter === 'ongoing') return t.status === 'group_stage' || t.status === 'knockout';
-    if (filter === 'finished') return t.status === 'finished';
+    const ds = getDisplayStatus(t);
+    if (filter === 'upcoming') return ds === 'upcoming' || ds === 'setup';
+    if (filter === 'ongoing') return ds === 'group_stage' || ds === 'knockout';
+    if (filter === 'finished') return ds === 'finished';
     return true;
   });
 
@@ -719,7 +726,7 @@ export default function TournamentListPage() {
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {filteredTournaments.map((t) => {
-            const sc = STATUS_CONFIG[t.status as keyof typeof STATUS_CONFIG] ?? STATUS_CONFIG.setup;
+            const sc = STATUS_CONFIG[getDisplayStatus(t)] ?? STATUS_CONFIG.setup;
             const parts = t.config?.participants ?? [];
             const groups = t.config?.groups ?? [];
             const matchesPlayed = t.matches?.filter((m) => m.played).length ?? 0;
