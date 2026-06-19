@@ -90,27 +90,24 @@ export default function RoundRobinView({ tournament, players, saving, isLoggedIn
     <div className="space-y-6 animate-fade-in">
 
       {/* Progress strip */}
-      <div className="card px-5 py-4">
-        <div className="flex items-center justify-between mb-2">
-          <div className="flex items-center gap-3">
-            <p className="text-sm font-bold text-slate-700">Tiến độ giải đấu</p>
+      <div className="card px-4 py-3">
+        <div className="flex items-center justify-between mb-1.5">
+          <div className="flex items-center gap-2">
+            <p className="text-xs font-bold text-slate-700">Tiến độ</p>
             {saving && <span className="text-xs text-blue-500 animate-pulse">Đang lưu...</span>}
           </div>
-          <div className="flex items-center gap-3 text-xs text-slate-500">
-            <span><span className="font-bold text-blue-700">{playedCount}</span>/{totalCount} trận đã đấu</span>
-            <span className="text-slate-200">|</span>
-            <span><span className="font-bold text-slate-700">{totalCount - playedCount}</span> còn lại</span>
+          <div className="flex items-center gap-2 text-xs text-slate-500">
+            <span><span className="font-bold text-blue-700">{playedCount}</span>/{totalCount} trận</span>
+            {pct === 100 && <span className="text-green-600 font-bold">✅ Xong!</span>}
           </div>
         </div>
-        <div className="h-3 bg-slate-100 rounded-full overflow-hidden">
-          <div
-            className="h-full rounded-full transition-all duration-700 bg-gradient-to-r from-blue-500 to-blue-400"
-            style={{ width: `${pct}%` }}
-          />
+        <div className="h-2.5 bg-slate-100 rounded-full overflow-hidden">
+          <div className="h-full rounded-full transition-all duration-700 bg-gradient-to-r from-blue-500 to-blue-400"
+            style={{ width: `${pct}%` }} />
         </div>
         <div className="flex justify-between mt-1">
-          <span className="text-xs text-slate-400">0%</span>
-          <span className={`text-xs font-bold ${pct === 100 ? 'text-green-600' : 'text-slate-500'}`}>{pct}% {pct === 100 ? '✅ Hoàn thành!' : ''}</span>
+          <span className="text-[10px] text-slate-400">{totalCount - playedCount} trận còn lại</span>
+          <span className={`text-[10px] font-bold ${pct === 100 ? 'text-green-600' : 'text-slate-400'}`}>{pct}%</span>
         </div>
       </div>
 
@@ -127,50 +124,44 @@ export default function RoundRobinView({ tournament, players, saving, isLoggedIn
       )}
 
       {/* Main grid */}
-      <div className="grid lg:grid-cols-5 gap-6 items-start">
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 lg:gap-6 items-start">
 
         {/* ── Standings (2 cols) ─────────────────────────────────── */}
         <div className="lg:col-span-2 space-y-4">
 
           {/* Top 3 podium */}
           {standings.length >= 2 && (
-            <div className="flex justify-center gap-3">
-              {/* Order: 2nd, 1st, 3rd */}
+            <div className="grid grid-cols-3 gap-2 items-end">
               {[
-                { s: standings[1], rank: 1, mt: 'mt-5' },
-                { s: standings[0], rank: 0, mt: 'mt-0' },
-                { s: standings.length >= 3 ? standings[2] : null, rank: 2, mt: 'mt-5' },
-              ].map(({ s, rank, mt }) => {
-                if (!s) return <div key={rank} className="w-28" />;
+                { s: standings[1], rank: 1 },
+                { s: standings[0], rank: 0 },
+                { s: standings.length >= 3 ? standings[2] : null, rank: 2 },
+              ].map(({ s, rank }) => {
+                if (!s) return <div key={rank} />;
                 const pls = pPlayers(s.participantId);
                 const diff = s.goalsFor - s.goalsAgainst;
-                const avatarSize = rank === 0 ? 36 : 28;
                 return (
-                  <div key={s.participantId} className={`${mt} flex-1 max-w-32`}>
-                    <div className={`card p-3 text-center ${rank === 0 ? 'ring-2 ring-yellow-300 shadow-lg' : ''}`}>
-                      <div className="text-2xl mb-1">{RANK_ICONS[rank]}</div>
+                  <div key={s.participantId}>
+                    <div className={`card p-2 text-center ${rank === 0 ? 'ring-2 ring-yellow-300 shadow-lg' : ''}`}>
+                      <div className="text-base mb-1">{RANK_ICONS[rank]}</div>
                       {pls.length > 0 && (
-                        <div className="flex justify-center mb-1.5">
+                        <div className="flex justify-center mb-1">
                           <div className="flex -space-x-2">
                             {pls.map((pl) => (
-                              <Avatar key={pl.id} src={pl.avatar} name={pl.name} size={avatarSize}
-                                className="ring-2 ring-white shadow-sm" />
+                              <Avatar key={pl.id} src={pl.avatar} name={pl.name} size={rank === 0 ? 28 : 22}
+                                className="ring-1 ring-white" />
                             ))}
                           </div>
                         </div>
                       )}
-                      <p className="text-xs font-bold text-slate-700 leading-tight mb-2 truncate">{pName(s.participantId)}</p>
-                      <div className={`rounded-xl px-2 py-1.5 ${rank === 0 ? 'bg-yellow-50' : rank === 1 ? 'bg-slate-50' : 'bg-amber-50'}`}>
-                        <p className={`text-xl font-black ${rank === 0 ? 'text-yellow-700' : rank === 1 ? 'text-slate-600' : 'text-amber-800'}`}>{s.points}</p>
-                        <p className="text-xs text-slate-400">điểm</p>
+                      <p className="text-[10px] font-bold text-slate-700 leading-tight mb-1 overflow-hidden" style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{pName(s.participantId)}</p>
+                      <div className={`rounded-lg px-1 py-1 ${rank === 0 ? 'bg-yellow-50' : rank === 1 ? 'bg-slate-50' : 'bg-amber-50'}`}>
+                        <p className={`text-sm font-black ${rank === 0 ? 'text-yellow-700' : rank === 1 ? 'text-slate-600' : 'text-amber-800'}`}>{s.points}</p>
+                        <p className="text-[9px] text-slate-400">điểm</p>
                       </div>
-                      <div className="flex gap-2 mt-2 text-xs justify-center">
-                        <span className="text-green-600 font-bold">{s.wins}W</span>
-                        <span className="text-slate-300">·</span>
-                        <span className={`font-bold ${diff >= 0 ? 'text-blue-500' : 'text-red-400'}`}>
-                          {diff >= 0 ? `+${diff}` : diff}
-                        </span>
-                      </div>
+                      <p className={`text-[10px] mt-1 font-bold ${diff >= 0 ? 'text-blue-500' : 'text-red-400'}`}>
+                        {diff >= 0 ? `+${diff}` : diff}
+                      </p>
                     </div>
                   </div>
                 );

@@ -164,79 +164,103 @@ export default function TournamentDetail({ params }: { params: Promise<{ id: str
 
   return (
     <div>
-      {/* Header */}
-      <div className="mb-6">
-        <button onClick={() => router.push('/tournament')} className="text-blue-600 text-sm hover:underline mb-3 flex items-center gap-1">
-          ← Danh sách giải đấu
-        </button>
-        <div className="flex items-start justify-between flex-wrap gap-3">
-          <div>
-            <h1 className="text-2xl font-bold text-blue-900">{tournament.name}</h1>
-            <div className="flex items-center gap-2 mt-1 flex-wrap">
-              <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${sc.color}`}>{sc.label}</span>
-              {isRoundRobin && (
-                <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-purple-100 text-purple-700">⚽ Vòng tròn</span>
-              )}
-              <span className="text-xs text-gray-400">
-                {tournament.type === 'singles' ? 'Đánh đơn' : 'Đánh đôi'} ·{' '}
-                {new Date(tournament.date).toLocaleDateString('vi-VN', { dateStyle: 'short' })}{' '}
-                {new Date(tournament.date).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })} ·{' '}
-                {participants.length} {isRoundRobin ? 'đội' : 'người'}
-                {!isRoundRobin && ` · ${groups.length} bảng`}
-                {tournament.venue && <> · 📍 {tournament.venue}</>}
-              </span>
-            </div>
+      {/* ── Header card ─────────────────────────────────────── */}
+      <div className="gradient-navy rounded-2xl px-4 pt-4 pb-4 mb-4 text-white relative overflow-hidden">
+        {/* Dot pattern */}
+        <div className="absolute inset-0 opacity-10 pointer-events-none" style={{ backgroundImage: 'radial-gradient(circle, white 1px, transparent 1px)', backgroundSize: '24px 24px' }} />
+        <div className="relative">
+          {/* Back + saving indicator */}
+          <div className="flex items-center justify-between mb-3">
+            <button onClick={() => router.push('/tournament')} className="flex items-center gap-1 text-blue-200 text-sm hover:text-white transition-colors active:opacity-70">
+              ← Danh sách
+            </button>
+            {saving && <span className="text-xs text-blue-300 animate-pulse">Đang lưu...</span>}
           </div>
 
-          {saving && <span className="text-xs text-blue-500 animate-pulse">Đang lưu...</span>}
+          {/* Title row */}
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex-1 min-w-0">
+              <h1 className="text-lg sm:text-2xl font-bold leading-tight mb-2">{tournament.name}</h1>
+              {/* Badges */}
+              <div className="flex flex-wrap gap-1.5 mb-2">
+                <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${sc.color}`}>{sc.label}</span>
+                {isRoundRobin && (
+                  <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-purple-100 text-purple-700">⚽ Vòng tròn</span>
+                )}
+              </div>
+              {/* Meta */}
+              <div className="text-blue-200 text-xs flex flex-wrap gap-x-2 gap-y-0.5">
+                <span>{tournament.type === 'singles' ? '👤 Đơn' : '👥 Đôi'}</span>
+                <span>·</span>
+                <span>
+                  {new Date(tournament.date).toLocaleDateString('vi-VN', { dateStyle: 'short' })}{' '}
+                  {new Date(tournament.date).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
+                </span>
+                <span>· {participants.length} {isRoundRobin ? 'đội' : 'người'}{!isRoundRobin && ` · ${groups.length} bảng`}</span>
+                {tournament.venue && <span>· 📍 {tournament.venue}</span>}
+              </div>
+            </div>
 
-          {/* Action buttons */}
-          <div className="flex gap-2 flex-wrap">
-            {status === 'setup' && !isRoundRobin && (
-              <button onClick={startGroupStage} className="bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-blue-800">
-                🚀 Bắt đầu vòng bảng
-              </button>
-            )}
-            {status === 'group_stage' && groupComplete && !hasKnockout && !isRoundRobin && (
-              <button onClick={generateKnockout} className="bg-orange-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-orange-700">
-                ⚡ Tạo nhánh Knockout
-              </button>
-            )}
-            {/* Manual finish — available anytime after setup */}
-            {status !== 'setup' && status !== 'finished' && isLoggedIn && (
-              confirmFinish ? (
-                <div className="flex items-center gap-2 bg-green-50 border border-green-300 rounded-lg px-3 py-1.5">
-                  <span className="text-xs text-green-700 font-medium">Kết thúc giải?</span>
-                  <button onClick={() => { finishTournament(); setConfirmFinish(false); }} className="bg-green-600 text-white px-2.5 py-1 rounded text-xs font-bold hover:bg-green-700">Xác nhận</button>
-                  <button onClick={() => setConfirmFinish(false)} className="text-gray-500 text-xs hover:text-gray-700 px-1">Hủy</button>
-                </div>
-              ) : (
-                <button onClick={() => setConfirmFinish(true)} className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-green-700">
-                  🏁 Kết thúc giải
-                </button>
-              )
-            )}
-            {/* Delete */}
-            {!confirmDelete ? (
-              <button onClick={() => setConfirmDelete(true)} className="border border-red-200 text-red-400 px-3 py-2 rounded-lg text-sm font-medium hover:bg-red-50">
-                🗑
-              </button>
-            ) : (
-              <div className="flex items-center gap-2 bg-red-50 border border-red-300 rounded-lg px-3 py-1.5">
-                <span className="text-xs text-red-600 font-medium">Xóa giải?</span>
-                <button onClick={deleteTournament} className="bg-red-600 text-white px-2.5 py-1 rounded text-xs font-bold hover:bg-red-700">Xóa</button>
-                <button onClick={() => setConfirmDelete(false)} className="text-gray-500 text-xs hover:text-gray-700 px-1">Hủy</button>
+            {/* Admin quick actions */}
+            {isLoggedIn && (
+              <div className="flex items-center gap-1.5 flex-shrink-0">
+                {status !== 'setup' && status !== 'finished' && (
+                  confirmFinish ? (
+                    <div className="flex items-center gap-1.5 bg-green-900/60 rounded-xl px-2.5 py-1.5">
+                      <span className="text-xs text-green-200">Kết thúc?</span>
+                      <button onClick={() => { finishTournament(); setConfirmFinish(false); }}
+                        className="bg-green-400 text-green-900 px-2 py-0.5 rounded-lg text-xs font-black">✓</button>
+                      <button onClick={() => setConfirmFinish(false)} className="text-blue-300 text-sm leading-none">✕</button>
+                    </div>
+                  ) : (
+                    <button onClick={() => setConfirmFinish(true)}
+                      className="bg-green-500/80 hover:bg-green-400 active:bg-green-600 text-white px-3 py-1.5 rounded-xl text-xs font-semibold transition-all">
+                      🏁 Kết thúc
+                    </button>
+                  )
+                )}
+                {confirmDelete ? (
+                  <div className="flex items-center gap-1.5 bg-red-900/60 rounded-xl px-2.5 py-1.5">
+                    <span className="text-xs text-red-200">Xóa?</span>
+                    <button onClick={deleteTournament}
+                      className="bg-red-400 text-red-900 px-2 py-0.5 rounded-lg text-xs font-black">✓</button>
+                    <button onClick={() => setConfirmDelete(false)} className="text-blue-300 text-sm leading-none">✕</button>
+                  </div>
+                ) : (
+                  <button onClick={() => setConfirmDelete(true)}
+                    className="bg-white/10 hover:bg-red-500/40 active:bg-red-600/60 text-white/60 hover:text-white px-2.5 py-1.5 rounded-xl text-sm transition-all">
+                    🗑
+                  </button>
+                )}
               </div>
             )}
           </div>
+
+          {/* Start/Generate buttons (non-round-robin only) */}
+          {!isRoundRobin && isLoggedIn && (status === 'setup' || (status === 'group_stage' && groupComplete && !hasKnockout)) && (
+            <div className="mt-3 pt-3 border-t border-white/10 flex gap-2">
+              {status === 'setup' && (
+                <button onClick={startGroupStage}
+                  className="bg-white/20 hover:bg-white/30 active:bg-white/10 text-white px-4 py-2 rounded-xl text-sm font-semibold transition-all">
+                  🚀 Bắt đầu vòng bảng
+                </button>
+              )}
+              {status === 'group_stage' && groupComplete && !hasKnockout && (
+                <button onClick={generateKnockout}
+                  className="bg-orange-400/80 hover:bg-orange-400 text-white px-4 py-2 rounded-xl text-sm font-semibold transition-all">
+                  ⚡ Tạo nhánh Knockout
+                </button>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Champion banner */}
+      {/* Champion banner (group-knockout only) */}
       {champion && (
-        <div className="bg-gradient-to-r from-yellow-400 to-amber-500 rounded-2xl p-5 mb-6 text-white shadow-lg">
+        <div className="bg-gradient-to-r from-yellow-400 to-amber-500 rounded-2xl p-4 mb-4 text-white shadow-lg">
           <p className="text-yellow-900 text-xs font-bold uppercase tracking-widest mb-1">🏆 Vô địch</p>
-          <p className="text-2xl font-bold">{participantName(champion.id)}</p>
+          <p className="text-xl sm:text-2xl font-bold">{participantName(champion.id)}</p>
         </div>
       )}
 
