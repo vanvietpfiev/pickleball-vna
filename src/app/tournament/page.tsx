@@ -28,6 +28,16 @@ export default function TournamentListPage() {
   const [tName, setTName] = useState('');
   const [tType, setTType] = useState<'singles' | 'doubles'>('doubles');
   const [tMode, setTMode] = useState<'group_knockout' | 'round_robin'>('group_knockout');
+  const [tDate, setTDate] = useState(() => {
+    // Default to next Saturday 8:00 AM
+    const d = new Date();
+    const day = d.getDay(); // 0=Sun, 6=Sat
+    const daysToSat = (6 - day + 7) % 7 || 7;
+    d.setDate(d.getDate() + daysToSat);
+    d.setHours(8, 0, 0, 0);
+    return d.toISOString().slice(0, 16);
+  });
+  const [tVenue, setTVenue] = useState('');
   const [groupCount, setGroupCount] = useState(2);
   const [advancePerGroup, setAdvancePerGroup] = useState(2);
   const [hasThirdPlace, setHasThirdPlace] = useState(true);
@@ -58,6 +68,7 @@ export default function TournamentListPage() {
 
   const resetCreate = () => {
     setStep(1); setTName(''); setTType('doubles'); setTMode('group_knockout');
+    setTVenue('');
     setGroupCount(2); setAdvancePerGroup(2); setHasThirdPlace(true);
     setSelectedIds([]); setFixedPairs([]); setLockMode(false); setLockFirst(null);
     setAutoPairs(null); setTeamNames({});
@@ -166,6 +177,7 @@ export default function TournamentListPage() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         name: tName, type: tType, mode: 'round_robin',
+        date: tDate, venue: tVenue,
         participants: parts, groups: [],
         format: { advancePerGroup: 1, hasThirdPlace: false },
         matches: rrMatches, status: 'group_stage',
@@ -209,6 +221,7 @@ export default function TournamentListPage() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         name: tName, type: tType,
+        date: tDate, venue: tVenue,
         participants, groups, format,
         matches: [], status: 'setup',
       }),
@@ -294,6 +307,24 @@ export default function TournamentListPage() {
                     value={tName} onChange={(e) => setTName(e.target.value)}
                     onKeyDown={(e) => e.key === 'Enter' && tName.trim() && setStep(2)}
                   />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-sm font-semibold text-gray-700 block mb-1.5">Thời gian</label>
+                    <input
+                      type="datetime-local"
+                      className="border rounded-xl px-4 py-2.5 w-full text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                      value={tDate} onChange={(e) => setTDate(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm font-semibold text-gray-700 block mb-1.5">Địa điểm</label>
+                    <input
+                      className="border rounded-xl px-4 py-2.5 w-full text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                      placeholder="VD: Sân Skypec"
+                      value={tVenue} onChange={(e) => setTVenue(e.target.value)}
+                    />
+                  </div>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
@@ -703,7 +734,8 @@ export default function TournamentListPage() {
                     <span className={`text-xs font-semibold px-2 py-0.5 rounded-full flex-shrink-0 ${sc.color}`}>{sc.label}</span>
                   </div>
                   <p className="text-blue-300 text-xs mt-1">
-                    {t.type === 'singles' ? 'Đánh đơn' : 'Đánh đôi'} · {new Date(t.date).toLocaleDateString('vi-VN')}
+                    {t.type === 'singles' ? 'Đánh đơn' : 'Đánh đôi'} · {new Date(t.date).toLocaleDateString('vi-VN', { dateStyle: 'short' })} {new Date(t.date).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
+                    {t.venue && <> · 📍 {t.venue}</>}
                   </p>
                 </div>
                 <div className="px-5 py-4">

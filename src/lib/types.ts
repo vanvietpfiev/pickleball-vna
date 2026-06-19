@@ -85,6 +85,7 @@ export interface Tournament {
   id: string;
   name: string;
   date: string;
+  venue?: string;
   type: 'singles' | 'doubles';
   config: TournamentConfig;
   matches: TMatch[];

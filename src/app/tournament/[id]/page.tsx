@@ -179,9 +179,11 @@ export default function TournamentDetail({ params }: { params: Promise<{ id: str
               )}
               <span className="text-xs text-gray-400">
                 {tournament.type === 'singles' ? 'Đánh đơn' : 'Đánh đôi'} ·{' '}
-                {new Date(tournament.date).toLocaleDateString('vi-VN')} ·{' '}
+                {new Date(tournament.date).toLocaleDateString('vi-VN', { dateStyle: 'short' })}{' '}
+                {new Date(tournament.date).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })} ·{' '}
                 {participants.length} {isRoundRobin ? 'đội' : 'người'}
                 {!isRoundRobin && ` · ${groups.length} bảng`}
+                {tournament.venue && <> · 📍 {tournament.venue}</>}
               </span>
             </div>
           </div>

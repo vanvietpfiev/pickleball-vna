@@ -239,6 +239,7 @@ function getTournaments() {
       id:      String(t.id),
       name:    String(t.name),
       date:    String(t.date),
+      venue:   String(t.venue || ''),
       type:    String(t.type),
       config:  config,
       matches: matches,
@@ -250,12 +251,14 @@ function getTournaments() {
 function addTournament(data) {
   var id = 't_' + Date.now();
   var now = new Date().toISOString();
+  var date = data.date || now;
+  var venue = data.venue || '';
   var config = { participants: data.participants || [], groups: data.groups || [], format: data.format || {}, mode: data.mode || 'group_knockout' };
   getSheet('Tournaments').appendRow([
-    id, data.name, now, data.type,
-    JSON.stringify(config), JSON.stringify(data.matches || []), data.status || 'setup'
+    id, data.name, date, data.type,
+    JSON.stringify(config), JSON.stringify(data.matches || []), data.status || 'setup', venue
   ]);
-  return { id: id, name: data.name, date: now, type: data.type,
+  return { id: id, name: data.name, date: date, venue: venue, type: data.type,
            config: config, matches: data.matches || [], status: data.status || 'setup' };
 }
 
