@@ -36,10 +36,10 @@ export default function RoundRobinView({ tournament, players, saving, isLoggedIn
     return p.playerIds.map((id) => players.find((x) => x.id === id)?.name ?? id).join(' & ');
   }
 
-  function pPlayer(pId: string): Player | undefined {
+  function pPlayers(pId: string): Player[] {
     const p = participants.find((x) => x.id === pId);
-    if (!p?.playerIds[0]) return undefined;
-    return players.find((x) => x.id === p.playerIds[0]);
+    if (!p) return [];
+    return p.playerIds.map((id) => players.find((x) => x.id === id)).filter(Boolean) as Player[];
   }
 
   // ── computed data ───────────────────────────────────────────────────
@@ -142,15 +142,22 @@ export default function RoundRobinView({ tournament, players, saving, isLoggedIn
                 { s: standings.length >= 3 ? standings[2] : null, rank: 2, mt: 'mt-5' },
               ].map(({ s, rank, mt }) => {
                 if (!s) return <div key={rank} className="w-28" />;
-                const pl = pPlayer(s.participantId);
+                const pls = pPlayers(s.participantId);
                 const diff = s.goalsFor - s.goalsAgainst;
+                const avatarSize = rank === 0 ? 36 : 28;
                 return (
                   <div key={s.participantId} className={`${mt} flex-1 max-w-32`}>
                     <div className={`card p-3 text-center ${rank === 0 ? 'ring-2 ring-yellow-300 shadow-lg' : ''}`}>
                       <div className="text-2xl mb-1">{RANK_ICONS[rank]}</div>
-                      {pl && (
-                        <Avatar src={pl.avatar} name={pl.name} size={rank === 0 ? 44 : 36}
-                          className="mx-auto mb-1.5 ring-2 ring-white shadow-sm" />
+                      {pls.length > 0 && (
+                        <div className="flex justify-center mb-1.5">
+                          <div className="flex -space-x-2">
+                            {pls.map((pl) => (
+                              <Avatar key={pl.id} src={pl.avatar} name={pl.name} size={avatarSize}
+                                className="ring-2 ring-white shadow-sm" />
+                            ))}
+                          </div>
+                        </div>
                       )}
                       <p className="text-xs font-bold text-slate-700 leading-tight mb-2 truncate">{pName(s.participantId)}</p>
                       <div className={`rounded-xl px-2 py-1.5 ${rank === 0 ? 'bg-yellow-50' : rank === 1 ? 'bg-slate-50' : 'bg-amber-50'}`}>
@@ -196,7 +203,7 @@ export default function RoundRobinView({ tournament, players, saving, isLoggedIn
                 {standings.map((s, i) => {
                   const diff = s.goalsFor - s.goalsAgainst;
                   const isTop3 = i < 3;
-                  const pl = pPlayer(s.participantId);
+                  const pls = pPlayers(s.participantId);
                   return (
                     <tr key={s.participantId}
                       className={`transition-colors ${i % 2 === 1 ? 'bg-slate-50/40' : ''} hover:bg-blue-50/40`}>
@@ -207,8 +214,14 @@ export default function RoundRobinView({ tournament, players, saving, isLoggedIn
                       </td>
                       <td className="px-3 py-2.5">
                         <div className="flex items-center gap-1.5">
-                          {pl && <Avatar src={pl.avatar} name={pl.name} size={22} className="flex-shrink-0" />}
-                          <span className={`font-semibold text-xs truncate max-w-20 ${i === 0 ? 'text-blue-700' : 'text-slate-700'}`}>
+                          {pls.length > 0 && (
+                            <div className="flex -space-x-1.5 flex-shrink-0">
+                              {pls.map((pl) => (
+                                <Avatar key={pl.id} src={pl.avatar} name={pl.name} size={22} className="ring-1 ring-white" />
+                              ))}
+                            </div>
+                          )}
+                          <span className={`font-semibold text-xs leading-tight ${i === 0 ? 'text-blue-700' : 'text-slate-700'}`}>
                             {pName(s.participantId)}
                           </span>
                         </div>
@@ -312,8 +325,12 @@ export default function RoundRobinView({ tournament, players, saving, isLoggedIn
                           <div className="flex items-center gap-3">
                             {/* Team 1 */}
                             <div className="flex items-center gap-1.5 flex-1 min-w-0">
-                              {pPlayer(m.p1Id) && (
-                                <Avatar src={pPlayer(m.p1Id)!.avatar} name={pPlayer(m.p1Id)!.name} size={24} className="flex-shrink-0" />
+                              {pPlayers(m.p1Id).length > 0 && (
+                                <div className="flex -space-x-1.5 flex-shrink-0">
+                                  {pPlayers(m.p1Id).map((pl) => (
+                                    <Avatar key={pl.id} src={pl.avatar} name={pl.name} size={24} className="ring-1 ring-white" />
+                                  ))}
+                                </div>
                               )}
                               <span className={`text-sm font-semibold truncate ${
                                 m.played && m.score1! > m.score2! ? 'text-blue-700' : 'text-slate-700'
@@ -367,8 +384,12 @@ export default function RoundRobinView({ tournament, players, saving, isLoggedIn
                               }`}>
                                 {pName(m.p2Id)}
                               </span>
-                              {pPlayer(m.p2Id) && (
-                                <Avatar src={pPlayer(m.p2Id)!.avatar} name={pPlayer(m.p2Id)!.name} size={24} className="flex-shrink-0" />
+                              {pPlayers(m.p2Id).length > 0 && (
+                                <div className="flex -space-x-1.5 flex-shrink-0">
+                                  {pPlayers(m.p2Id).map((pl) => (
+                                    <Avatar key={pl.id} src={pl.avatar} name={pl.name} size={24} className="ring-1 ring-white" />
+                                  ))}
+                                </div>
                               )}
                             </div>
                           </div>
