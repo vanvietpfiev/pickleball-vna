@@ -190,13 +190,13 @@ export default function RoundRobinView({ tournament, players, saving, isLoggedIn
             <table className="w-full text-sm">
               <thead>
                 <tr className="bg-slate-50 border-b border-slate-100">
-                  <th className="text-left px-3 py-2 text-xs font-bold text-slate-400 w-8">#</th>
-                  <th className="text-left px-3 py-2 text-xs font-bold text-slate-400">Đội</th>
-                  <th className="text-center px-1.5 py-2 text-xs font-bold text-slate-400 w-7">P</th>
+                  <th className="text-left px-2 py-2 text-xs font-bold text-slate-400 w-8">#</th>
+                  <th className="text-left px-2 py-2 text-xs font-bold text-slate-400">Đội</th>
+                  <th className="hidden sm:table-cell text-center px-1.5 py-2 text-xs font-bold text-slate-400 w-7">P</th>
                   <th className="text-center px-1.5 py-2 text-xs font-bold text-green-500 w-7">W</th>
                   <th className="text-center px-1.5 py-2 text-xs font-bold text-red-400 w-7">L</th>
-                  <th className="text-center px-2 py-2 text-xs font-bold text-blue-600 w-12">Pts</th>
-                  <th className="text-center px-1.5 py-2 text-xs font-bold text-slate-400 w-12">±</th>
+                  <th className="text-center px-2 py-2 text-xs font-bold text-blue-600 w-10">Pts</th>
+                  <th className="text-center px-1.5 py-2 text-xs font-bold text-slate-400 w-10">±</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
@@ -207,32 +207,32 @@ export default function RoundRobinView({ tournament, players, saving, isLoggedIn
                   return (
                     <tr key={s.participantId}
                       className={`transition-colors ${i % 2 === 1 ? 'bg-slate-50/40' : ''} hover:bg-blue-50/40`}>
-                      <td className="px-3 py-2.5">
+                      <td className="px-2 py-2">
                         <span className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-black ${isTop3 ? RANK_COLORS[i] : 'bg-slate-100 text-slate-500'}`}>
                           {i + 1}
                         </span>
                       </td>
-                      <td className="px-3 py-2.5">
+                      <td className="px-2 py-2 max-w-0">
                         <div className="flex items-center gap-1.5">
                           {pls.length > 0 && (
                             <div className="flex -space-x-1.5 flex-shrink-0">
                               {pls.map((pl) => (
-                                <Avatar key={pl.id} src={pl.avatar} name={pl.name} size={22} className="ring-1 ring-white" />
+                                <Avatar key={pl.id} src={pl.avatar} name={pl.name} size={20} className="ring-1 ring-white" />
                               ))}
                             </div>
                           )}
-                          <span className={`font-semibold text-xs leading-tight ${i === 0 ? 'text-blue-700' : 'text-slate-700'}`}>
+                          <span className={`font-semibold text-xs leading-tight truncate ${i === 0 ? 'text-blue-700' : 'text-slate-700'}`}>
                             {pName(s.participantId)}
                           </span>
                         </div>
                       </td>
-                      <td className="text-center px-1.5 py-2.5 text-xs text-slate-400">{s.played}</td>
-                      <td className="text-center px-1.5 py-2.5 text-xs font-bold text-green-600">{s.wins}</td>
-                      <td className="text-center px-1.5 py-2.5 text-xs text-red-400">{s.losses}</td>
-                      <td className="text-center px-2 py-2.5">
+                      <td className="hidden sm:table-cell text-center px-1.5 py-2 text-xs text-slate-400">{s.played}</td>
+                      <td className="text-center px-1.5 py-2 text-xs font-bold text-green-600">{s.wins}</td>
+                      <td className="text-center px-1.5 py-2 text-xs text-red-400">{s.losses}</td>
+                      <td className="text-center px-2 py-2">
                         <span className={`text-sm font-black ${i === 0 ? 'text-blue-700' : 'text-slate-700'}`}>{s.points}</span>
                       </td>
-                      <td className="text-center px-1.5 py-2.5 text-xs font-bold">
+                      <td className="text-center px-1.5 py-2 text-xs font-bold">
                         <span className={diff > 0 ? 'text-green-500' : diff < 0 ? 'text-red-400' : 'text-slate-300'}>
                           {diff > 0 ? `+${diff}` : diff}
                         </span>
@@ -258,7 +258,7 @@ export default function RoundRobinView({ tournament, players, saving, isLoggedIn
               <span className="text-xs text-slate-400">{rounds.length} vòng · {totalCount} trận</span>
             </div>
 
-            <div className="divide-y divide-slate-50 overflow-y-auto" style={{ maxHeight: '70vh' }}>
+            <div className="divide-y divide-slate-50">
               {rounds.map(([roundName, roundMatches]) => {
                 const roundPlayed = roundMatches.filter((m) => m.played).length;
                 const roundDone = roundPlayed === roundMatches.length;
@@ -278,7 +278,7 @@ export default function RoundRobinView({ tournament, players, saving, isLoggedIn
                     {/* Matches */}
                     {roundMatches.sort((a, b) => a.order - b.order).map((m) => (
                       <div key={m.id}
-                        className={`px-5 py-3 transition-colors ${editingId === m.id ? 'bg-blue-50' : 'hover:bg-slate-50/60'}`}>
+                        className={`px-3 sm:px-5 py-3 transition-colors ${editingId === m.id ? 'bg-blue-50' : 'hover:bg-slate-50/60'}`}>
                         {editingId === m.id ? (
                           /* ── Inline edit form ── */
                           <div className="space-y-2">

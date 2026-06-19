@@ -14,10 +14,10 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="vi" className={inter.variable}>
-      <body className="min-h-screen" style={{ background: '#f0f4ff' }}>
+      <body className="min-h-screen overflow-x-hidden" style={{ background: '#f0f4ff' }}>
         <AuthProvider>
           <Navbar />
-          <main className="max-w-6xl mx-auto px-4 py-8">{children}</main>
+          <main className="max-w-6xl mx-auto px-4 py-4 md:py-8 pb-24 md:pb-10">{children}</main>
         </AuthProvider>
       </body>
     </html>

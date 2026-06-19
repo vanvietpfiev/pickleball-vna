@@ -24,46 +24,46 @@ function EloBar({ elo, max }: { elo: number; max: number }) {
 
 function PodiumCard({ player, rank, index }: { player: Player; rank: 1 | 2 | 3; index: number }) {
   const configs = {
-    1: { grad: 'from-yellow-400 via-amber-400 to-orange-400', ring: 'ring-4 ring-yellow-300', label: '🥇 Quán quân', size: 72, textColor: 'text-yellow-700', bgLight: 'bg-yellow-50', border: 'border-yellow-200', order: 'order-2', mt: 'mt-0' },
-    2: { grad: 'from-slate-400 via-slate-300 to-slate-400', ring: 'ring-4 ring-slate-200', label: '🥈 Á quân', size: 60, textColor: 'text-slate-600', bgLight: 'bg-slate-50', border: 'border-slate-200', order: 'order-1', mt: 'mt-6' },
-    3: { grad: 'from-amber-700 via-amber-600 to-yellow-700', ring: 'ring-4 ring-amber-300', label: '🥉 Hạng ba', size: 60, textColor: 'text-amber-800', bgLight: 'bg-amber-50', border: 'border-amber-200', order: 'order-3', mt: 'mt-6' },
+    1: { grad: 'from-yellow-400 via-amber-400 to-orange-400', label: '🥇 Quán quân', size: 56, smSize: 72, textColor: 'text-yellow-700', bgLight: 'bg-yellow-50', border: 'border-yellow-200', order: 'order-2', mt: '' },
+    2: { grad: 'from-slate-400 via-slate-300 to-slate-400', label: '🥈 Á quân', size: 44, smSize: 60, textColor: 'text-slate-600', bgLight: 'bg-slate-50', border: 'border-slate-200', order: 'order-1', mt: 'mt-4 sm:mt-6' },
+    3: { grad: 'from-amber-700 via-amber-600 to-yellow-700', label: '🥉 Hạng ba', size: 44, smSize: 60, textColor: 'text-amber-800', bgLight: 'bg-amber-50', border: 'border-amber-200', order: 'order-3', mt: 'mt-4 sm:mt-6' },
   };
   const c = configs[rank];
   const winRate = player.matches > 0 ? Math.round((player.wins / player.matches) * 100) : 0;
 
   return (
-    <div className={`flex flex-col items-center ${c.order} animate-slide-up`} style={{ animationDelay: `${index * 80}ms` }}>
-      <div className={`${c.mt} card border ${c.border} p-5 flex flex-col items-center gap-3 w-44 text-center`}>
+    <div className={`flex flex-col items-center ${c.order} animate-slide-up flex-1 min-w-0`} style={{ animationDelay: `${index * 80}ms` }}>
+      <div className={`${c.mt} card border ${c.border} p-2 sm:p-5 flex flex-col items-center gap-2 sm:gap-3 w-full text-center`}>
         <div className={`p-1 rounded-full bg-gradient-to-br ${c.grad}`}>
           <Avatar src={player.avatar} name={player.name} size={c.size} className="ring-2 ring-white" />
         </div>
-        <div>
-          <p className={`text-xs font-bold ${c.textColor} mb-0.5`}>{c.label}</p>
-          <div className="flex items-center justify-center gap-1">
-            <p className="font-black text-slate-800 text-sm leading-tight">{player.name}</p>
+        <div className="w-full">
+          <p className={`text-[10px] sm:text-xs font-bold ${c.textColor} mb-0.5`}>{c.label}</p>
+          <div className="flex items-center justify-center gap-1 flex-wrap">
+            <p className="font-black text-slate-800 text-xs sm:text-sm leading-tight truncate">{player.name}</p>
             {player.level && (
-              <span className={`text-xs font-black px-1.5 py-0.5 rounded-full ${levelColor[player.level] ?? ''}`}>{player.level}</span>
+              <span className={`text-[10px] font-black px-1 py-0.5 rounded-full flex-shrink-0 ${levelColor[player.level] ?? ''}`}>{player.level}</span>
             )}
           </div>
         </div>
-        <div className={`w-full ${c.bgLight} rounded-xl px-3 py-2`}>
-          <p className="text-2xl font-black text-slate-800">{player.elo}</p>
-          <p className="text-xs text-slate-500 font-medium">ELO</p>
+        <div className={`w-full ${c.bgLight} rounded-xl px-2 py-1.5`}>
+          <p className="text-xl sm:text-2xl font-black text-slate-800">{player.elo}</p>
+          <p className="text-[10px] text-slate-500 font-medium">ELO</p>
         </div>
-        <div className="flex gap-3 text-xs">
+        <div className="flex gap-2 text-xs w-full justify-center">
           <div className="text-center">
             <p className="font-bold text-green-600">{player.wins}</p>
-            <p className="text-slate-400">Thắng</p>
+            <p className="text-slate-400 text-[10px]">Thắng</p>
           </div>
           <div className="w-px bg-slate-100" />
           <div className="text-center">
             <p className="font-bold text-slate-700">{winRate}%</p>
-            <p className="text-slate-400">Tỷ lệ</p>
+            <p className="text-slate-400 text-[10px]">Tỷ lệ</p>
           </div>
           <div className="w-px bg-slate-100" />
           <div className="text-center">
             <p className="font-bold text-red-400">{player.losses}</p>
-            <p className="text-slate-400">Thua</p>
+            <p className="text-slate-400 text-[10px]">Thua</p>
           </div>
         </div>
       </div>
@@ -111,13 +111,13 @@ export default function LeaderboardPage() {
 
       {/* Top 3 podium */}
       {loading ? (
-        <div className="flex justify-center gap-4 mb-8">
+        <div className="flex justify-center gap-2 sm:gap-4 mb-8">
           {[1, 0, 2].map((i) => (
-            <div key={i} className={`w-44 h-64 card animate-pulse ${i === 0 ? '' : 'mt-6'}`} />
+            <div key={i} className={`flex-1 max-w-36 h-56 card animate-pulse ${i === 0 ? '' : 'mt-4 sm:mt-6'}`} />
           ))}
         </div>
       ) : top3.length >= 2 && (
-        <div className="flex justify-center gap-4 mb-8">
+        <div className="flex justify-center gap-2 sm:gap-4 mb-8 max-w-sm sm:max-w-none mx-auto">
           {top3.length >= 2 && <PodiumCard player={top3[1]} rank={2} index={1} />}
           {top3.length >= 1 && <PodiumCard player={top3[0]} rank={1} index={0} />}
           {top3.length >= 3 && <PodiumCard player={top3[2]} rank={3} index={2} />}
