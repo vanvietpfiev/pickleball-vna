@@ -250,7 +250,7 @@ function getTournaments() {
 function addTournament(data) {
   var id = 't_' + Date.now();
   var now = new Date().toISOString();
-  var config = { participants: data.participants || [], groups: data.groups || [], format: data.format || {} };
+  var config = { participants: data.participants || [], groups: data.groups || [], format: data.format || {}, mode: data.mode || 'group_knockout' };
   getSheet('Tournaments').appendRow([
     id, data.name, now, data.type,
     JSON.stringify(config), JSON.stringify(data.matches || []), data.status || 'setup'

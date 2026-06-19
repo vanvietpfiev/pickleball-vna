@@ -3,7 +3,7 @@ import { useEffect, useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Tournament, TParticipant, TGroup, TournamentFormat, Player } from '@/lib/types';
-import { optimalPairing } from '@/lib/tournamentUtils';
+import { optimalPairing, generateRoundRobinSchedule } from '@/lib/tournamentUtils';
 import Avatar from '@/components/Avatar';
 import { useAuth } from '@/components/AuthProvider';
 
@@ -27,6 +27,7 @@ export default function TournamentListPage() {
   const [step, setStep] = useState(1);
   const [tName, setTName] = useState('');
   const [tType, setTType] = useState<'singles' | 'doubles'>('doubles');
+  const [tMode, setTMode] = useState<'group_knockout' | 'round_robin'>('group_knockout');
   const [groupCount, setGroupCount] = useState(2);
   const [advancePerGroup, setAdvancePerGroup] = useState(2);
   const [hasThirdPlace, setHasThirdPlace] = useState(true);
@@ -56,7 +57,7 @@ export default function TournamentListPage() {
   }, []);
 
   const resetCreate = () => {
-    setStep(1); setTName(''); setTType('doubles');
+    setStep(1); setTName(''); setTType('doubles'); setTMode('group_knockout');
     setGroupCount(2); setAdvancePerGroup(2); setHasThirdPlace(true);
     setSelectedIds([]); setFixedPairs([]); setLockMode(false); setLockFirst(null);
     setAutoPairs(null); setTeamNames({});
@@ -136,22 +137,48 @@ export default function TournamentListPage() {
 
   // ── Step 2 → 3: build participants from pairs ────────────────────
   const goToStep3 = () => {
+    let parts: TParticipant[];
     if (tType === 'singles') {
-      const parts: TParticipant[] = selectedIds.map((id) => ({
-        id: `tp_${Date.now()}_${id}`,
-        playerIds: [id],
-      }));
-      setParticipants(parts);
+      parts = selectedIds.map((id) => ({ id: `tp_${Date.now()}_${id}`, playerIds: [id] }));
     } else {
-      const parts: TParticipant[] = allPairs.map((pair, i) => ({
+      parts = allPairs.map((pair, i) => ({
         id: `tp_${Date.now()}_${i}`,
         playerIds: [pair.a, pair.b],
         name: teamNames[`${pair.a}_${pair.b}`] || teamNames[`${pair.b}_${pair.a}`] || undefined,
       }));
-      setParticipants(parts);
     }
-    setGroupAssign({});
-    setStep(3);
+    setParticipants(parts);
+    if (tMode === 'round_robin') {
+      // Skip group assignment — create immediately
+      createRoundRobin(parts);
+    } else {
+      setGroupAssign({});
+      setStep(3);
+    }
+  };
+
+  const createRoundRobin = async (parts: TParticipant[]) => {
+    if (!tName.trim() || parts.length < 2) return;
+    setCreating(true);
+    const rrMatches = generateRoundRobinSchedule(parts.map((p) => p.id));
+    const res = await fetch('/api/tournament', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: tName, type: tType, mode: 'round_robin',
+        participants: parts, groups: [],
+        format: { advancePerGroup: 1, hasThirdPlace: false },
+        matches: rrMatches, status: 'group_stage',
+      }),
+    });
+    const data = await res.json();
+    if (res.ok) {
+      setTournaments((prev) => [data, ...prev]);
+      setShowCreate(false);
+      resetCreate();
+      router.push(`/tournament/${data.id}`);
+    }
+    setCreating(false);
   };
 
   const autoAssign = () => {
@@ -239,16 +266,16 @@ export default function TournamentListPage() {
           {/* Progress bar */}
           <div className="bg-gradient-to-r from-blue-900 to-blue-700 px-6 py-4">
             <div className="flex items-center gap-3">
-              {[1, 2, 3].map((s) => (
+              {(tMode === 'round_robin' ? [1, 2] : [1, 2, 3]).map((s) => (
                 <div key={s} className="flex items-center gap-2">
                   <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold border-2 transition-all ${
                     step === s ? 'bg-white text-blue-800 border-white' :
                     step > s ? 'bg-blue-500 text-white border-blue-500' : 'border-blue-400 text-blue-300'
                   }`}>{step > s ? '✓' : s}</div>
                   <span className={`text-xs font-medium hidden sm:block ${step >= s ? 'text-white' : 'text-blue-400'}`}>
-                    {s === 1 ? 'Thông tin' : s === 2 ? 'Người chơi & Cặp đôi' : 'Phân bảng'}
+                    {s === 1 ? 'Thông tin' : s === 2 ? (tMode === 'round_robin' ? 'Chọn đội & Tạo giải' : 'Người chơi & Cặp đôi') : 'Phân bảng'}
                   </span>
-                  {s < 3 && <div className={`w-8 h-px ${step > s ? 'bg-blue-400' : 'bg-blue-700'}`} />}
+                  {s < (tMode === 'round_robin' ? 2 : 3) && <div className={`w-8 h-px ${step > s ? 'bg-blue-400' : 'bg-blue-700'}`} />}
                 </div>
               ))}
             </div>
@@ -290,7 +317,26 @@ export default function TournamentListPage() {
                     </select>
                   </div>
                 </div>
-                <div className="bg-blue-50 rounded-xl p-4 border border-blue-100">
+                {/* Tournament mode selector */}
+                <div>
+                  <label className="text-sm font-semibold text-gray-700 block mb-1.5">Thể thức thi đấu</label>
+                  <div className="grid grid-cols-2 gap-3">
+                    {([
+                      { value: 'group_knockout', label: '🏆 Vòng bảng + Knockout', desc: 'Đấu vòng bảng rồi loại trực tiếp' },
+                      { value: 'round_robin',    label: '⚽ Vòng tròn tính điểm', desc: 'Mỗi đội gặp tất cả đội còn lại' },
+                    ] as const).map((m) => (
+                      <button key={m.value} onClick={() => setTMode(m.value)}
+                        className={`text-left p-3 rounded-xl border-2 transition-all ${
+                          tMode === m.value ? 'border-blue-600 bg-blue-50' : 'border-gray-200 hover:border-gray-300'
+                        }`}>
+                        <p className={`text-sm font-bold ${tMode === m.value ? 'text-blue-700' : 'text-gray-700'}`}>{m.label}</p>
+                        <p className="text-xs text-gray-400 mt-0.5">{m.desc}</p>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className={`bg-blue-50 rounded-xl p-4 border border-blue-100 ${tMode === 'round_robin' ? 'opacity-40 pointer-events-none' : ''}`}>
                   <p className="text-sm font-semibold text-blue-800 mb-3">Quy tắc knockout</p>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
@@ -522,9 +568,9 @@ export default function TournamentListPage() {
 
                 <div className="flex justify-between">
                   <button onClick={() => setStep(1)} className="text-gray-500 px-4 py-2 rounded-xl text-sm hover:bg-gray-100">← Quay lại</button>
-                  <button onClick={goToStep3} disabled={!step2Ready}
+                  <button onClick={goToStep3} disabled={!step2Ready || creating}
                     className="bg-blue-700 text-white px-6 py-2.5 rounded-xl text-sm font-semibold hover:bg-blue-800 disabled:opacity-40">
-                    Tiếp theo →
+                    {creating ? 'Đang tạo...' : tMode === 'round_robin' ? '🏆 Tạo giải vòng tròn' : 'Tiếp theo →'}
                   </button>
                 </div>
               </div>

@@ -76,6 +76,7 @@ export interface TournamentConfig {
   participants: TParticipant[];
   groups: TGroup[];
   format: TournamentFormat;
+  mode?: 'group_knockout' | 'round_robin';
 }
 
 export type TournamentStatus = 'setup' | 'group_stage' | 'knockout' | 'finished';

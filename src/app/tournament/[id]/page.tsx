@@ -5,11 +5,14 @@ import { Tournament, TMatch, Player, TSet } from '@/lib/types';
 import GroupStage from '@/components/tournament/GroupStage';
 import KnockoutBracket from '@/components/tournament/KnockoutBracket';
 import MatchEntryModal from '@/components/tournament/MatchEntryModal';
+import RoundRobinView from '@/components/tournament/RoundRobinView';
 import { generateGroupMatches, generateKnockoutMatches, propagateKOResult, isGroupStageComplete } from '@/lib/tournamentUtils';
+import { useAuth } from '@/components/AuthProvider';
 
 export default function TournamentDetail({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const router = useRouter();
+  const { isLoggedIn } = useAuth();
   const [tournament, setTournament] = useState<Tournament | null>(null);
   const [players, setPlayers] = useState<Player[]>([]);
   const [loading, setLoading] = useState(true);
@@ -128,6 +131,7 @@ export default function TournamentDetail({ params }: { params: Promise<{ id: str
   if (!tournament) return <p className="text-gray-500">Không tìm thấy giải đấu.</p>;
 
   const { config: rawConfig, status, matches } = tournament;
+  const isRoundRobin = rawConfig?.mode === 'round_robin';
   const participants = rawConfig?.participants ?? [];
   const groups = rawConfig?.groups ?? [];
   const format = rawConfig?.format ?? { advancePerGroup: 2, hasThirdPlace: false };
@@ -167,10 +171,14 @@ export default function TournamentDetail({ params }: { params: Promise<{ id: str
             <h1 className="text-2xl font-bold text-blue-900">{tournament.name}</h1>
             <div className="flex items-center gap-2 mt-1 flex-wrap">
               <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${sc.color}`}>{sc.label}</span>
+              {isRoundRobin && (
+                <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-purple-100 text-purple-700">⚽ Vòng tròn</span>
+              )}
               <span className="text-xs text-gray-400">
                 {tournament.type === 'singles' ? 'Đánh đơn' : 'Đánh đôi'} ·{' '}
                 {new Date(tournament.date).toLocaleDateString('vi-VN')} ·{' '}
-                {participants.length} người · {groups.length} bảng
+                {participants.length} {isRoundRobin ? 'đội' : 'người'}
+                {!isRoundRobin && ` · ${groups.length} bảng`}
               </span>
             </div>
           </div>
@@ -179,18 +187,18 @@ export default function TournamentDetail({ params }: { params: Promise<{ id: str
 
           {/* Action buttons */}
           <div className="flex gap-2 flex-wrap">
-            {status === 'setup' && (
+            {status === 'setup' && !isRoundRobin && (
               <button onClick={startGroupStage} className="bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-blue-800">
                 🚀 Bắt đầu vòng bảng
               </button>
             )}
-            {status === 'group_stage' && groupComplete && !hasKnockout && (
+            {status === 'group_stage' && groupComplete && !hasKnockout && !isRoundRobin && (
               <button onClick={generateKnockout} className="bg-orange-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-orange-700">
                 ⚡ Tạo nhánh Knockout
               </button>
             )}
             {/* Manual finish — available anytime after setup */}
-            {status !== 'setup' && status !== 'finished' && (
+            {status !== 'setup' && status !== 'finished' && isLoggedIn && (
               confirmFinish ? (
                 <div className="flex items-center gap-2 bg-green-50 border border-green-300 rounded-lg px-3 py-1.5">
                   <span className="text-xs text-green-700 font-medium">Kết thúc giải?</span>
@@ -227,8 +235,21 @@ export default function TournamentDetail({ params }: { params: Promise<{ id: str
         </div>
       )}
 
+      {/* ── Round-robin view ── */}
+      {isRoundRobin && (
+        <RoundRobinView
+          tournament={tournament}
+          players={players}
+          saving={saving}
+          isLoggedIn={isLoggedIn}
+          onMatchResult={handleMatchResult}
+        />
+      )}
+
+      {/* ── Group-knockout view ── */}
+
       {/* Tab bar (group + knockout) */}
-      {status !== 'setup' && (
+      {!isRoundRobin && status !== 'setup' && (
         <div className="flex gap-1 mb-5 bg-gray-100 p-1 rounded-xl w-fit">
           <button
             onClick={() => setActiveTab('group')}
@@ -253,7 +274,7 @@ export default function TournamentDetail({ params }: { params: Promise<{ id: str
       )}
 
       {/* Setup info */}
-      {status === 'setup' && (
+      {!isRoundRobin && status === 'setup' && (
         <div className="grid gap-4 sm:grid-cols-2">
           {groups.map((g) => (
             <div key={g.name} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
@@ -285,7 +306,7 @@ export default function TournamentDetail({ params }: { params: Promise<{ id: str
       )}
 
       {/* Group stage */}
-      {status !== 'setup' && activeTab === 'group' && (
+      {!isRoundRobin && status !== 'setup' && activeTab === 'group' && (
         <GroupStage
           groups={groups}
           participants={participants}
@@ -296,7 +317,7 @@ export default function TournamentDetail({ params }: { params: Promise<{ id: str
       )}
 
       {/* Progress bar for group stage */}
-      {status === 'group_stage' && activeTab === 'group' && (
+      {!isRoundRobin && status === 'group_stage' && activeTab === 'group' && (
         <div className="mt-4 bg-white rounded-xl border border-gray-100 p-4">
           {groupComplete ? (
             <div className="flex items-center justify-between">
@@ -333,7 +354,7 @@ export default function TournamentDetail({ params }: { params: Promise<{ id: str
       )}
 
       {/* Knockout bracket */}
-      {activeTab === 'knockout' && hasKnockout && (
+      {!isRoundRobin && activeTab === 'knockout' && hasKnockout && (
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
           <div className="bg-gradient-to-r from-orange-600 to-amber-500 px-5 py-3">
             <h3 className="font-bold text-white">Nhánh Knockout</h3>
@@ -347,8 +368,8 @@ export default function TournamentDetail({ params }: { params: Promise<{ id: str
         </div>
       )}
 
-      {/* Match entry modal */}
-      {editingMatch && (
+      {/* Match entry modal (group-knockout only) */}
+      {!isRoundRobin && editingMatch && (
         <MatchEntryModal
           match={editingMatch}
           participants={participants}

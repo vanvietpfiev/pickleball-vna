@@ -278,6 +278,47 @@ function fillSlot(match: TMatch, slot: 'p1Id' | 'p2Id', value: string) {
   if (value !== 'TBD') match[slot] = value;
 }
 
+// ── Round-robin full schedule (circle method) ─────────────────────
+// Generates N*(N-1)/2 matches grouped into N-1 rounds,
+// each team plays exactly once per round.
+
+export function generateRoundRobinSchedule(participantIds: string[]): TMatch[] {
+  const matches: TMatch[] = [];
+  const n = participantIds.length;
+  if (n < 2) return matches;
+
+  // Add a phantom "bye" slot for odd N so circle method works cleanly
+  const ids = [...participantIds];
+  if (n % 2 !== 0) ids.push('__bye__');
+  const N = ids.length;
+  const rounds = N - 1;
+  const rotating = ids.slice(1);
+  const base = Date.now();
+
+  for (let round = 0; round < rounds; round++) {
+    const current = [ids[0], ...rotating];
+    for (let i = 0; i < N / 2; i++) {
+      const p1 = current[i];
+      const p2 = current[N - 1 - i];
+      if (p1 !== '__bye__' && p2 !== '__bye__') {
+        matches.push({
+          id: `rr_${base}_r${round}_${i}`,
+          stage: 'group',
+          groupName: `Vòng ${round + 1}`,
+          p1Id: p1,
+          p2Id: p2,
+          played: false,
+          order: round * 100 + i,
+        });
+      }
+    }
+    // Rotate: move last element of rotating to front
+    rotating.unshift(rotating.pop()!);
+  }
+
+  return matches;
+}
+
 export function isGroupStageComplete(groups: TGroup[], matches: TMatch[]): boolean {
   const groupMatches = matches.filter((m) => m.stage === 'group');
   let expected = 0;
