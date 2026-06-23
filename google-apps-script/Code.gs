@@ -5,8 +5,9 @@
 // ============================================================
 
 var SS = SpreadsheetApp.getActiveSpreadsheet();
-var K_FACTOR = 32;
 var INITIAL_ELO = 1200;
+var WIN_POINTS  = 10;
+var LOSS_POINTS = 3;
 
 // ── Router ───────────────────────────────────────────────────────
 
@@ -58,14 +59,10 @@ function jsonResponse(data) {
     .setMimeType(ContentService.MimeType.JSON);
 }
 
-// ── ELO Helpers ──────────────────────────────────────────────────
+// ── Scoring Helper ───────────────────────────────────────────────
 
-function expectedScore(ratingA, ratingB) {
-  return 1 / (1 + Math.pow(10, (ratingB - ratingA) / 400));
-}
-
-function calcNewRating(rating, expected, actual) {
-  return Math.round(rating + K_FACTOR * (actual - expected));
+function calcNewRating(rating, won) {
+  return rating + (won ? WIN_POINTS : LOSS_POINTS);
 }
 
 // ── Sheet Helpers ────────────────────────────────────────────────
@@ -197,31 +194,13 @@ function addMatch(data) {
   var eloMap = {};
   players.forEach(function(p) { eloMap[p.id] = p.elo; });
 
-  // Calculate & apply ELO changes
-  if (data.type === 'singles') {
-    var p1 = team1[0], p2 = team2[0];
-    var exp1 = expectedScore(eloMap[p1], eloMap[p2]);
-    var exp2 = expectedScore(eloMap[p2], eloMap[p1]);
-    var new1 = calcNewRating(eloMap[p1], exp1, team1Won ? 1 : 0);
-    var new2 = calcNewRating(eloMap[p2], exp2, team1Won ? 0 : 1);
-    updatePlayerStats_(p1, new1, team1Won);
-    updatePlayerStats_(p2, new2, !team1Won);
-
-  } else { // doubles
-    var avg1 = team1.reduce(function(s, id) { return s + (eloMap[id] || INITIAL_ELO); }, 0) / team1.length;
-    var avg2 = team2.reduce(function(s, id) { return s + (eloMap[id] || INITIAL_ELO); }, 0) / team2.length;
-    var e1 = expectedScore(avg1, avg2);
-    var e2 = expectedScore(avg2, avg1);
-
-    team1.forEach(function(id) {
-      var newElo = calcNewRating(eloMap[id] || INITIAL_ELO, e1, team1Won ? 1 : 0);
-      updatePlayerStats_(id, newElo, team1Won);
-    });
-    team2.forEach(function(id) {
-      var newElo = calcNewRating(eloMap[id] || INITIAL_ELO, e2, team1Won ? 0 : 1);
-      updatePlayerStats_(id, newElo, !team1Won);
-    });
-  }
+  // Calculate & apply score changes (flat +10 win / +3 loss)
+  team1.forEach(function(id) {
+    updatePlayerStats_(id, calcNewRating(eloMap[id] || INITIAL_ELO, team1Won), team1Won);
+  });
+  team2.forEach(function(id) {
+    updatePlayerStats_(id, calcNewRating(eloMap[id] || INITIAL_ELO, !team1Won), !team1Won);
+  });
 
   return { id: id, date: now, type: data.type, team1: team1, team2: team2,
            score1: data.score1, score2: data.score2, winningSide: data.winningSide, notes: data.notes || '' };
@@ -370,20 +349,8 @@ function recalcAllEloInternal_() {
     var team2 = m.team2 ? String(m.team2).split(',') : [];
     var team1Won = String(m.winningSide) === '1';
 
-    if (String(m.type) === 'singles' && team1.length === 1 && team2.length === 1) {
-      var p1 = team1[0], p2 = team2[0];
-      var exp1 = expectedScore(eloMap[p1] || INITIAL_ELO, eloMap[p2] || INITIAL_ELO);
-      var exp2 = expectedScore(eloMap[p2] || INITIAL_ELO, eloMap[p1] || INITIAL_ELO);
-      eloMap[p1] = calcNewRating(eloMap[p1] || INITIAL_ELO, exp1, team1Won ? 1 : 0);
-      eloMap[p2] = calcNewRating(eloMap[p2] || INITIAL_ELO, exp2, team1Won ? 0 : 1);
-    } else {
-      var avg1 = team1.reduce(function(s, id) { return s + (eloMap[id] || INITIAL_ELO); }, 0) / (team1.length || 1);
-      var avg2 = team2.reduce(function(s, id) { return s + (eloMap[id] || INITIAL_ELO); }, 0) / (team2.length || 1);
-      var e1 = expectedScore(avg1, avg2);
-      var e2 = expectedScore(avg2, avg1);
-      team1.forEach(function(id) { eloMap[id] = calcNewRating(eloMap[id] || INITIAL_ELO, e1, team1Won ? 1 : 0); });
-      team2.forEach(function(id) { eloMap[id] = calcNewRating(eloMap[id] || INITIAL_ELO, e2, team1Won ? 0 : 1); });
-    }
+    team1.forEach(function(id) { eloMap[id] = calcNewRating(eloMap[id] || INITIAL_ELO, team1Won); });
+    team2.forEach(function(id) { eloMap[id] = calcNewRating(eloMap[id] || INITIAL_ELO, !team1Won); });
 
     var winners = team1Won ? team1 : team2;
     var losers  = team1Won ? team2 : team1;
