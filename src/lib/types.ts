@@ -46,6 +46,13 @@ export interface TParticipant {
 export interface TGroup {
   name: string;        // "Bảng A", "Bảng B" …
   participantIds: string[];
+  seriesId?: string;   // 'A' or 'B' for series_format
+}
+
+export interface TSeries {
+  id: string;          // 'A', 'B'
+  name: string;        // 'Series A – Đôi Nam-Nam'
+  type: 'male_male' | 'male_female' | 'other';
 }
 
 export type TMatchStage = 'group' | 'qf' | 'sf' | '3rd' | 'final';
@@ -67,6 +74,7 @@ export interface TMatch {
   played: boolean;
   order: number;       // sort order within stage
   globalMatchId?: string; // ID in global Matches sheet (set after first result save)
+  seriesId?: string;   // 'A' or 'B' for series_format
 }
 
 export interface TournamentFormat {
@@ -78,7 +86,8 @@ export interface TournamentConfig {
   participants: TParticipant[];
   groups: TGroup[];
   format: TournamentFormat;
-  mode?: 'group_knockout' | 'round_robin';
+  mode?: 'group_knockout' | 'round_robin' | 'series_format';
+  series?: TSeries[];
 }
 
 export type TournamentStatus = 'setup' | 'group_stage' | 'knockout' | 'finished';

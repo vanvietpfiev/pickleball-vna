@@ -6,6 +6,7 @@ import GroupStage from '@/components/tournament/GroupStage';
 import KnockoutBracket from '@/components/tournament/KnockoutBracket';
 import MatchEntryModal from '@/components/tournament/MatchEntryModal';
 import RoundRobinView from '@/components/tournament/RoundRobinView';
+import SeriesDashboard from '@/components/tournament/SeriesDashboard';
 import { generateGroupMatches, generateKnockoutMatches, propagateKOResult, isGroupStageComplete } from '@/lib/tournamentUtils';
 import { useAuth } from '@/components/AuthProvider';
 
@@ -144,9 +145,12 @@ export default function TournamentDetail({ params }: { params: Promise<{ id: str
 
   const { config: rawConfig, status, matches } = tournament;
   // Detect round-robin: check config.mode first, fallback to match ID pattern
+  const isSeries = rawConfig?.mode === 'series_format';
   const isRoundRobin =
-    rawConfig?.mode === 'round_robin' ||
-    (matches.length > 0 && (rawConfig?.groups ?? []).length === 0 && matches[0]?.id?.startsWith('rr_'));
+    !isSeries && (
+      rawConfig?.mode === 'round_robin' ||
+      (matches.length > 0 && (rawConfig?.groups ?? []).length === 0 && matches[0]?.id?.startsWith('rr_'))
+    );
   const participants = rawConfig?.participants ?? [];
   const groups = rawConfig?.groups ?? [];
   const format = rawConfig?.format ?? { advancePerGroup: 2, hasThirdPlace: false };
@@ -248,8 +252,8 @@ export default function TournamentDetail({ params }: { params: Promise<{ id: str
             )}
           </div>
 
-          {/* Start/Generate buttons (non-round-robin only) */}
-          {!isRoundRobin && isLoggedIn && (status === 'setup' || (status === 'group_stage' && groupComplete && !hasKnockout)) && (
+          {/* Start/Generate buttons (non-round-robin, non-series only) */}
+          {!isRoundRobin && !isSeries && isLoggedIn && (status === 'setup' || (status === 'group_stage' && groupComplete && !hasKnockout)) && (
             <div className="mt-3 pt-3 border-t border-white/10 flex gap-2">
               {status === 'setup' && (
                 <button onClick={startGroupStage}
@@ -276,6 +280,16 @@ export default function TournamentDetail({ params }: { params: Promise<{ id: str
         </div>
       )}
 
+      {/* ── Series format view ── */}
+      {isSeries && (
+        <SeriesDashboard
+          tournament={tournament}
+          players={players}
+          isLoggedIn={isLoggedIn}
+          onSave={(patch) => save(patch as Partial<Tournament>)}
+        />
+      )}
+
       {/* ── Round-robin view ── */}
       {isRoundRobin && (
         <RoundRobinView
@@ -290,7 +304,7 @@ export default function TournamentDetail({ params }: { params: Promise<{ id: str
       {/* ── Group-knockout view ── */}
 
       {/* Tab bar (group + knockout) */}
-      {!isRoundRobin && status !== 'setup' && (
+      {!isRoundRobin && !isSeries && status !== 'setup' && (
         <div className="flex gap-1 mb-5 bg-gray-100 p-1 rounded-xl w-fit">
           <button
             onClick={() => setActiveTab('group')}
@@ -347,7 +361,7 @@ export default function TournamentDetail({ params }: { params: Promise<{ id: str
       )}
 
       {/* Group stage */}
-      {!isRoundRobin && status !== 'setup' && activeTab === 'group' && (
+      {!isRoundRobin && !isSeries && status !== 'setup' && activeTab === 'group' && (
         <GroupStage
           groups={groups}
           participants={participants}
@@ -358,7 +372,7 @@ export default function TournamentDetail({ params }: { params: Promise<{ id: str
       )}
 
       {/* Progress bar for group stage */}
-      {!isRoundRobin && status === 'group_stage' && activeTab === 'group' && (
+      {!isRoundRobin && !isSeries && status === 'group_stage' && activeTab === 'group' && (
         <div className="mt-4 bg-white rounded-xl border border-gray-100 p-4">
           {groupComplete ? (
             <div className="flex items-center justify-between">
@@ -395,7 +409,7 @@ export default function TournamentDetail({ params }: { params: Promise<{ id: str
       )}
 
       {/* Knockout bracket */}
-      {!isRoundRobin && activeTab === 'knockout' && hasKnockout && (
+      {!isRoundRobin && !isSeries && activeTab === 'knockout' && hasKnockout && (
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
           <div className="bg-gradient-to-r from-orange-600 to-amber-500 px-5 py-3">
             <h3 className="font-bold text-white">Nhánh Knockout</h3>

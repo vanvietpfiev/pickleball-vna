@@ -1,4 +1,4 @@
-import { TMatch, TGroup, TParticipant, TournamentFormat, TMatchStage } from './types';
+import { TMatch, TGroup, TParticipant, TournamentFormat, TMatchStage, TSeries } from './types';
 
 // ── Optimal doubles pairing (minimise ELO variance across teams) ──
 // Uses backtracking brute-force (fast up to ~12 players, then greedy fallback)
@@ -317,6 +317,110 @@ export function generateRoundRobinSchedule(participantIds: string[]): TMatch[] {
   }
 
   return matches;
+}
+
+// ── Series format utilities ───────────────────────────────────────
+
+export function generateSeriesGroupMatches(seriesId: string, groups: TGroup[]): TMatch[] {
+  const seriesGroups = groups.filter((g) => g.seriesId === seriesId);
+  const matches: TMatch[] = [];
+  let order = 0;
+  const base = Date.now();
+  for (const group of seriesGroups) {
+    const ids = group.participantIds;
+    for (let i = 0; i < ids.length; i++) {
+      for (let j = i + 1; j < ids.length; j++) {
+        matches.push({
+          id: `sgm_${base}_${seriesId}_${order}`,
+          stage: 'group',
+          groupName: group.name,
+          seriesId,
+          p1Id: ids[i],
+          p2Id: ids[j],
+          played: false,
+          order: order++,
+        });
+      }
+    }
+  }
+  return matches;
+}
+
+// Cross-bracket knockout: 1A-2B, 1B-2C, 1C-2D, 1D-2A (for 4 groups)
+export function generateSeriesKnockout(
+  seriesId: string,
+  groups: TGroup[],
+  groupMatches: TMatch[]
+): TMatch[] {
+  const seriesGroups = groups.filter((g) => g.seriesId === seriesId);
+  const n = seriesGroups.length;
+  if (n < 2) return [];
+
+  const base = Date.now();
+  let order = 0;
+
+  // Compute standings per group
+  const ranked: Record<string, Standing[]> = {};
+  for (const g of seriesGroups) {
+    const gm = groupMatches.filter((m) => m.seriesId === seriesId && m.groupName === g.name);
+    ranked[g.name] = calcGroupStandings(g.participantIds, gm);
+  }
+
+  const first = (groupName: string) => ranked[groupName]?.[0]?.participantId ?? 'TBD';
+  const second = (groupName: string) => ranked[groupName]?.[1]?.participantId ?? 'TBD';
+
+  const matches: TMatch[] = [];
+
+  if (n === 2) {
+    // SF → Final
+    const A = seriesGroups[0].name, B = seriesGroups[1].name;
+    matches.push({ id: `s_sf_${seriesId}_1_${base}`, stage: 'sf', seriesId, p1Id: first(A), p2Id: second(B), played: false, order: order++ });
+    matches.push({ id: `s_sf_${seriesId}_2_${base}`, stage: 'sf', seriesId, p1Id: first(B), p2Id: second(A), played: false, order: order++ });
+    matches.push({ id: `s_final_${seriesId}_${base}`, stage: 'final', seriesId, p1Id: 'TBD', p2Id: 'TBD', played: false, order: order++ });
+  } else if (n >= 4) {
+    // QF: 1A-2B, 1B-2C, 1C-2D, 1D-2A
+    const [gA, gB, gC, gD] = seriesGroups.map((g) => g.name);
+    matches.push({ id: `s_qf_${seriesId}_1_${base}`, stage: 'qf', seriesId, p1Id: first(gA), p2Id: second(gB), played: false, order: order++ });
+    matches.push({ id: `s_qf_${seriesId}_2_${base}`, stage: 'qf', seriesId, p1Id: first(gB), p2Id: second(gC), played: false, order: order++ });
+    matches.push({ id: `s_qf_${seriesId}_3_${base}`, stage: 'qf', seriesId, p1Id: first(gC), p2Id: second(gD), played: false, order: order++ });
+    matches.push({ id: `s_qf_${seriesId}_4_${base}`, stage: 'qf', seriesId, p1Id: first(gD), p2Id: second(gA), played: false, order: order++ });
+    matches.push({ id: `s_sf_${seriesId}_1_${base}`, stage: 'sf', seriesId, p1Id: 'TBD', p2Id: 'TBD', played: false, order: order++ });
+    matches.push({ id: `s_sf_${seriesId}_2_${base}`, stage: 'sf', seriesId, p1Id: 'TBD', p2Id: 'TBD', played: false, order: order++ });
+    matches.push({ id: `s_final_${seriesId}_${base}`, stage: 'final', seriesId, p1Id: 'TBD', p2Id: 'TBD', played: false, order: order++ });
+  } else {
+    // 3 groups: QF with one bye, then SF, Final
+    const [gA, gB, gC] = seriesGroups.map((g) => g.name);
+    matches.push({ id: `s_qf_${seriesId}_1_${base}`, stage: 'qf', seriesId, p1Id: first(gB), p2Id: second(gC), played: false, order: order++ });
+    matches.push({ id: `s_sf_${seriesId}_1_${base}`, stage: 'sf', seriesId, p1Id: first(gA), p2Id: 'TBD', played: false, order: order++ });
+    matches.push({ id: `s_sf_${seriesId}_2_${base}`, stage: 'sf', seriesId, p1Id: first(gC), p2Id: second(gA), played: false, order: order++ });
+    matches.push({ id: `s_final_${seriesId}_${base}`, stage: 'final', seriesId, p1Id: 'TBD', p2Id: 'TBD', played: false, order: order++ });
+  }
+
+  return matches;
+}
+
+export function propagateSeriesKO(seriesId: string, allMatches: TMatch[]): TMatch[] {
+  const updated = allMatches.map((m) => ({ ...m }));
+  const sm = (stage: TMatchStage) =>
+    updated.filter((m) => m.seriesId === seriesId && m.stage === stage).sort((a, b) => a.order - b.order);
+
+  const qfs = sm('qf'), sfs = sm('sf'), finals = sm('final');
+
+  if (qfs.length === 4 && sfs.length >= 2) {
+    fillSlot(sfs[0], 'p1Id', getWinner(qfs[0]));
+    fillSlot(sfs[0], 'p2Id', getWinner(qfs[1]));
+    fillSlot(sfs[1], 'p1Id', getWinner(qfs[2]));
+    fillSlot(sfs[1], 'p2Id', getWinner(qfs[3]));
+  }
+  if (qfs.length === 1 && sfs.length >= 1) {
+    fillSlot(sfs[0], 'p2Id', getWinner(qfs[0]));
+  }
+  if (sfs.length >= 2 && finals.length > 0) {
+    fillSlot(finals[0], 'p1Id', getWinner(sfs[0]));
+    fillSlot(finals[0], 'p2Id', getWinner(sfs[1]));
+  }
+
+  return updated;
 }
 
 export function isGroupStageComplete(groups: TGroup[], matches: TMatch[]): boolean {

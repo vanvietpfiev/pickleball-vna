@@ -2,7 +2,7 @@
 import { useEffect, useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Tournament, TParticipant, TGroup, TournamentFormat, Player } from '@/lib/types';
+import { Tournament, TParticipant, TGroup, TournamentFormat, Player, TSeries } from '@/lib/types';
 import { optimalPairing, generateRoundRobinSchedule } from '@/lib/tournamentUtils';
 import Avatar from '@/components/Avatar';
 import { useAuth } from '@/components/AuthProvider';
@@ -33,7 +33,7 @@ export default function TournamentListPage() {
   const [step, setStep] = useState(1);
   const [tName, setTName] = useState('');
   const [tType, setTType] = useState<'singles' | 'doubles'>('doubles');
-  const [tMode, setTMode] = useState<'group_knockout' | 'round_robin'>('group_knockout');
+  const [tMode, setTMode] = useState<'group_knockout' | 'round_robin' | 'series_format'>('group_knockout');
   const [tDate, setTDate] = useState(() => {
     // Default to next Saturday 8:00 AM
     const d = new Date();
@@ -60,9 +60,13 @@ export default function TournamentListPage() {
   // Step 2: unit filter
   const [playerUnitFilter, setPlayerUnitFilter] = useState('');
 
-  // Step 3: group assign
+  // Step 3: group assign (group_knockout)
   const [participants, setParticipants] = useState<TParticipant[]>([]);
   const [groupAssign, setGroupAssign] = useState<Record<string, number>>({});
+
+  // Series format extra state
+  const [seriesGroupCount, setSeriesGroupCount] = useState(4);
+  const [seriesAssign, setSeriesAssign] = useState<Record<string, { seriesId: string; groupIdx: number }>>({});
 
   useEffect(() => {
     Promise.all([
@@ -82,6 +86,7 @@ export default function TournamentListPage() {
     setSelectedIds([]); setFixedPairs([]); setLockMode(false); setLockFirst(null);
     setAutoPairs(null); setTeamNames({});
     setParticipants([]); setGroupAssign({});
+    setSeriesGroupCount(4); setSeriesAssign({});
   };
 
   // ── Step 2 helpers ───────────────────────────────────────────────
@@ -169,8 +174,10 @@ export default function TournamentListPage() {
     }
     setParticipants(parts);
     if (tMode === 'round_robin') {
-      // Skip group assignment — create immediately
       createRoundRobin(parts);
+    } else if (tMode === 'series_format') {
+      setSeriesAssign({});
+      setStep(3);
     } else {
       setGroupAssign({});
       setStep(3);
@@ -190,6 +197,48 @@ export default function TournamentListPage() {
         participants: parts, groups: [],
         format: { advancePerGroup: 1, hasThirdPlace: false },
         matches: rrMatches, status: 'group_stage',
+      }),
+    });
+    const data = await res.json();
+    if (res.ok) {
+      setTournaments((prev) => [data, ...prev]);
+      setShowCreate(false);
+      resetCreate();
+      router.push(`/tournament/${data.id}`);
+    }
+    setCreating(false);
+  };
+
+  const createSeriesTournament = async () => {
+    if (!tName.trim() || participants.length < 2) return;
+    setCreating(true);
+    const seriesDef: TSeries[] = [
+      { id: 'A', name: 'Series A – Đôi Nam-Nam', type: 'male_male' },
+      { id: 'B', name: 'Series B – Đôi Nam-Nữ', type: 'male_female' },
+    ];
+    const groups: TGroup[] = [];
+    for (const s of seriesDef) {
+      for (let gi = 0; gi < seriesGroupCount; gi++) {
+        const pIds = participants
+          .filter((p) => seriesAssign[p.id]?.seriesId === s.id && seriesAssign[p.id]?.groupIdx === gi)
+          .map((p) => p.id);
+        if (pIds.length > 0) {
+          groups.push({
+            name: `Bảng ${String.fromCharCode(65 + gi)}`,
+            participantIds: pIds,
+            seriesId: s.id,
+          });
+        }
+      }
+    }
+    const res = await fetch('/api/tournament', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: tName, type: 'doubles', mode: 'series_format',
+        date: tDate, venue: tVenue,
+        participants, groups, format: { advancePerGroup: 2, hasThirdPlace: false },
+        series: seriesDef, matches: [], status: 'setup',
       }),
     });
     const data = await res.json();
@@ -365,16 +414,30 @@ export default function TournamentListPage() {
                     {([
                       { value: 'group_knockout', label: '🏆 Vòng bảng + Knockout', desc: 'Đấu vòng bảng rồi loại trực tiếp' },
                       { value: 'round_robin',    label: '⚽ Vòng tròn tính điểm', desc: 'Mỗi đội gặp tất cả đội còn lại' },
+                      { value: 'series_format',  label: '🎯 Series A+B', desc: '2 series Đôi Nam+Nam / Nam+Nữ, 4 bảng mỗi series' },
                     ] as const).map((m) => (
                       <button key={m.value} onClick={() => setTMode(m.value)}
                         className={`text-left p-3 rounded-xl border-2 transition-all ${
                           tMode === m.value ? 'border-blue-600 bg-blue-50' : 'border-gray-200 hover:border-gray-300'
-                        }`}>
+                        } ${m.value === 'series_format' ? 'col-span-2' : ''}`}>
                         <p className={`text-sm font-bold ${tMode === m.value ? 'text-blue-700' : 'text-gray-700'}`}>{m.label}</p>
                         <p className="text-xs text-gray-400 mt-0.5">{m.desc}</p>
                       </button>
                     ))}
                   </div>
+                  {tMode === 'series_format' && (
+                    <div className="mt-3 bg-blue-50 rounded-xl p-3 border border-blue-100">
+                      <label className="text-xs font-semibold text-blue-700 block mb-1.5">Số bảng mỗi series</label>
+                      <div className="flex gap-2">
+                        {[2, 3, 4].map((n) => (
+                          <button key={n} onClick={() => setSeriesGroupCount(n)}
+                            className={`flex-1 py-1.5 rounded-lg text-sm font-semibold border transition-all ${
+                              seriesGroupCount === n ? 'border-blue-600 bg-white text-blue-700 shadow-sm' : 'border-transparent text-blue-400'
+                            }`}>{n} bảng</button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <div className={`bg-blue-50 rounded-xl p-4 border border-blue-100 ${tMode === 'round_robin' ? 'opacity-40 pointer-events-none' : ''}`}>
@@ -637,8 +700,98 @@ export default function TournamentListPage() {
               </div>
             )}
 
+            {/* ── STEP 3 (series_format): Assign series + groups ── */}
+            {step === 3 && tMode === 'series_format' && (
+              <div className="space-y-4">
+                <p className="text-sm font-semibold text-gray-700">
+                  Phân Series &amp; Bảng
+                  <span className="ml-2 text-gray-400 font-normal">
+                    ({participants.filter((p) => seriesAssign[p.id] != null).length}/{participants.length} đã phân)
+                  </span>
+                </p>
+                <div className="space-y-2">
+                  {participants.map((p) => {
+                    const assign = seriesAssign[p.id];
+                    return (
+                      <div key={p.id} className="bg-gray-50 rounded-xl px-3 py-2.5 space-y-1.5">
+                        <div className="flex items-center gap-2">
+                          <div className="flex -space-x-1 flex-shrink-0">
+                            {p.playerIds.map((pid) => {
+                              const av = playerAvatar(pid);
+                              return av ? <Avatar key={pid} src={av.src} name={av.name} size={24} className="ring-2 ring-white" /> : null;
+                            })}
+                          </div>
+                          <span className="flex-1 text-sm font-medium text-gray-700 truncate">{participantLabel(p)}</span>
+                          {assign && (
+                            <span className="text-xs font-bold text-blue-600 flex-shrink-0">
+                              Series {assign.seriesId} · Bảng {String.fromCharCode(65 + assign.groupIdx)}
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex gap-4">
+                          <div className="flex gap-1 items-center">
+                            <span className="text-xs text-gray-400 mr-1">Series:</span>
+                            {['A', 'B'].map((sId) => (
+                              <button key={sId}
+                                onClick={() => setSeriesAssign((prev) => ({
+                                  ...prev,
+                                  [p.id]: { seriesId: sId, groupIdx: prev[p.id]?.groupIdx ?? 0 },
+                                }))}
+                                className={`w-7 h-7 rounded-lg text-xs font-bold border-2 transition-all ${
+                                  assign?.seriesId === sId ? 'bg-blue-700 text-white border-blue-700' : 'border-gray-200 text-gray-500 hover:border-blue-400'
+                                }`}>{sId}</button>
+                            ))}
+                          </div>
+                          <div className="flex gap-1 items-center">
+                            <span className="text-xs text-gray-400 mr-1">Bảng:</span>
+                            {Array.from({ length: seriesGroupCount }, (_, gi) => (
+                              <button key={gi}
+                                onClick={() => setSeriesAssign((prev) => ({
+                                  ...prev,
+                                  [p.id]: { seriesId: prev[p.id]?.seriesId ?? 'A', groupIdx: gi },
+                                }))}
+                                className={`w-7 h-7 rounded-lg text-xs font-bold border-2 transition-all ${
+                                  assign?.groupIdx === gi ? 'bg-indigo-600 text-white border-indigo-600' : 'border-gray-200 text-gray-500 hover:border-indigo-400'
+                                }`}>{String.fromCharCode(65 + gi)}</button>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+                {/* Preview grid */}
+                <div className="grid grid-cols-2 gap-3">
+                  {(['A', 'B'] as const).map((sId) => (
+                    <div key={sId} className="bg-blue-50 rounded-xl p-3 border border-blue-100">
+                      <p className="text-xs font-bold text-blue-800 mb-2">Series {sId} {sId === 'A' ? '(Nam-Nam)' : '(Nam-Nữ)'}</p>
+                      {Array.from({ length: seriesGroupCount }, (_, gi) => {
+                        const gParticipants = participants.filter((p) => seriesAssign[p.id]?.seriesId === sId && seriesAssign[p.id]?.groupIdx === gi);
+                        return gParticipants.length > 0 ? (
+                          <div key={gi} className="mb-1.5">
+                            <span className="text-[10px] font-bold text-blue-600 uppercase">Bảng {String.fromCharCode(65+gi)}</span>
+                            {gParticipants.map((p) => <p key={p.id} className="text-xs text-blue-700 truncate pl-2">{participantLabel(p)}</p>)}
+                          </div>
+                        ) : null;
+                      })}
+                    </div>
+                  ))}
+                </div>
+                <div className="flex justify-between">
+                  <button onClick={() => setStep(2)} className="text-gray-500 px-4 py-2 rounded-xl text-sm hover:bg-gray-100">← Quay lại</button>
+                  <button
+                    onClick={createSeriesTournament}
+                    disabled={creating || participants.some((p) => seriesAssign[p.id] == null)}
+                    className="bg-green-600 text-white px-6 py-2.5 rounded-xl text-sm font-semibold hover:bg-green-700 disabled:opacity-40"
+                  >
+                    {creating ? 'Đang tạo...' : '🎯 Tạo giải Series'}
+                  </button>
+                </div>
+              </div>
+            )}
+
             {/* ── STEP 3: Assign groups ─────────────────────────── */}
-            {step === 3 && (
+            {step === 3 && tMode !== 'series_format' && (
               <div className="space-y-5">
                 <div className="flex items-center justify-between">
                   <p className="text-sm font-semibold text-gray-700">

@@ -236,7 +236,7 @@ function addTournament(data) {
   var now = new Date().toISOString();
   var date = data.date || now;
   var venue = data.venue || '';
-  var config = { participants: data.participants || [], groups: data.groups || [], format: data.format || {}, mode: data.mode || 'group_knockout' };
+  var config = { participants: data.participants || [], groups: data.groups || [], format: data.format || {}, mode: data.mode || 'group_knockout', series: data.series || undefined };
   getSheet('Tournaments').appendRow([
     id, data.name, date, data.type,
     JSON.stringify(config), JSON.stringify(data.matches || []), data.status || 'setup', venue
