@@ -66,6 +66,7 @@ export interface TMatch {
   sets?: TSet[];       // per-set point scores
   played: boolean;
   order: number;       // sort order within stage
+  globalMatchId?: string; // ID in global Matches sheet (set after first result save)
 }
 
 export interface TournamentFormat {

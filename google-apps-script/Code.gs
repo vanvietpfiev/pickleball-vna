@@ -37,6 +37,7 @@ function doPost(e) {
     else if (action === 'updateAvatar')     result = updateAvatar(data);
     else if (action === 'updatePlayerLevel') result = updatePlayerLevel(data);
     else if (action === 'addMatch')         result = addMatch(data);
+    else if (action === 'updateMatch')      result = updateMatch(data);
     else if (action === 'addTournament')    result = addTournament(data);
     else if (action === 'updateTournament') result = updateTournament(data);
     else if (action === 'deleteTournament')    result = deleteTournament(data);
@@ -336,14 +337,30 @@ function deleteUser(data) {
   return { ok: true };
 }
 
+function updateMatch(data) {
+  // data: { id, score1, score2, winningSide, notes }
+  var rowIdx = findRowIndex('Matches', data.id);
+  if (rowIdx === -1) throw new Error('Match not found: ' + data.id);
+  var sh = getSheet('Matches');
+  var row = sh.getRange(rowIdx, 1, 1, 9).getValues()[0];
+  sh.getRange(rowIdx, 6, 1, 4).setValues([[
+    data.score1 !== undefined ? Number(data.score1) : row[5],
+    data.score2 !== undefined ? Number(data.score2) : row[6],
+    data.winningSide !== undefined ? data.winningSide : row[7],
+    data.notes !== undefined ? data.notes : row[8],
+  ]]);
+  recalcAllEloInternal_();
+  return { ok: true, id: data.id };
+}
+
 // ── Manual Recalculate (Menu) ─────────────────────────────────────
 
-function recalculateAllElo() {
+function recalcAllEloInternal_() {
   var players = getPlayers();
   var eloMap = {};
   var statsMap = {};
   players.forEach(function(p) {
-    eloMap[p.id] = p.initialElo || INITIAL_ELO;  // use per-player initial ELO
+    eloMap[p.id] = p.initialElo || INITIAL_ELO;
     statsMap[p.id] = { matches: 0, wins: 0, losses: 0 };
   });
 
@@ -375,7 +392,6 @@ function recalculateAllElo() {
     losers.forEach(function(id)  { if (statsMap[id]) statsMap[id].losses++; });
   });
 
-  // Write back to sheet
   var sh = getSheet('Players');
   players.forEach(function(p) {
     var rowIdx = findRowIndex('Players', p.id);
@@ -386,7 +402,12 @@ function recalculateAllElo() {
     ]]);
   });
 
-  SpreadsheetApp.getUi().alert('✅ Đã tính lại ELO cho ' + matches.length + ' trận!');
+  return matches.length;
+}
+
+function recalculateAllElo() {
+  var count = recalcAllEloInternal_();
+  SpreadsheetApp.getUi().alert('✅ Đã tính lại ELO cho ' + count + ' trận!');
 }
 
 function onOpen() {

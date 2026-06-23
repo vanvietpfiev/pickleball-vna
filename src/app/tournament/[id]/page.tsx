@@ -63,29 +63,41 @@ export default function TournamentDetail({ params }: { params: Promise<{ id: str
     const hasKO = updated.some((m) => m.stage !== 'group');
     if (hasKO) updated = propagateKOResult(updated);
 
-    await save({ matches: updated });
-
     // Push ELO update to Google Sheets (fire-and-forget)
     if (matchBefore && matchBefore.p1Id !== 'TBD' && matchBefore.p2Id !== 'TBD') {
       const tParticipants = tournament.config?.participants ?? [];
       const p1 = tParticipants.find((p) => p.id === matchBefore.p1Id);
       const p2 = tParticipants.find((p) => p.id === matchBefore.p2Id);
       if (p1 && p2 && p1.playerIds.length > 0 && p2.playerIds.length > 0) {
-        fetch('/api/matches', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            type: tournament.type,
-            team1: p1.playerIds,
-            team2: p2.playerIds,
-            score1,
-            score2,
-            winningSide: score1 > score2 ? '1' : '2',
-            notes: `[${tournament.name}]`,
-          }),
-        });
+        const winningSide = score1 > score2 ? '1' : '2';
+        const notes = `[${tournament.name}]`;
+
+        if (matchBefore.globalMatchId) {
+          // Match already recorded — UPDATE existing row + recalc ELO
+          fetch('/api/matches', {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: matchBefore.globalMatchId, score1, score2, winningSide, notes }),
+          });
+        } else {
+          // First time recording — CREATE new row, save returned ID
+          fetch('/api/matches', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ type: tournament.type, team1: p1.playerIds, team2: p2.playerIds, score1, score2, winningSide, notes }),
+          }).then((r) => r.json()).then((data) => {
+            if (data.id) {
+              const withGlobalId = updated.map((m) =>
+                m.id === matchId ? { ...m, globalMatchId: data.id } : m
+              );
+              save({ matches: withGlobalId });
+            }
+          });
+        }
       }
     }
+
+    await save({ matches: updated });
   };
 
   const startGroupStage = async () => {

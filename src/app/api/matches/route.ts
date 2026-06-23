@@ -29,3 +29,20 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: String(e) }, { status: 500 });
   }
 }
+
+export async function PATCH(req: NextRequest) {
+  try {
+    const body = await req.json();
+    const { id, score1, score2, winningSide, notes } = body;
+
+    if (!id) return NextResponse.json({ error: 'Missing match id' }, { status: 400 });
+
+    const result = await gasPost<{ ok: boolean }>({
+      action: 'updateMatch', id,
+      score1: Number(score1), score2: Number(score2), winningSide, notes,
+    });
+    return NextResponse.json(result);
+  } catch (e) {
+    return NextResponse.json({ error: String(e) }, { status: 500 });
+  }
+}
