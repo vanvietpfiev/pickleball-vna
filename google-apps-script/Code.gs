@@ -112,6 +112,7 @@ function getPlayers() {
       avatar:     String(p.avatar || ''),
       initialElo: Number(p.initialElo) || INITIAL_ELO,
       level:      String(p.level || ''),
+      unit:       String(p.unit || ''),
     };
   });
 }
@@ -121,8 +122,9 @@ function addPlayer(data) {
   var now = new Date().toISOString();
   var initialElo = Number(data.initialElo) || INITIAL_ELO;
   var level = String(data.level || '');
-  getSheet('Players').appendRow([id, data.name, initialElo, 0, 0, 0, now, data.avatar || '', initialElo, level]);
-  return { id: id, name: data.name, elo: initialElo, matches: 0, wins: 0, losses: 0, createdAt: now, avatar: data.avatar || '', initialElo: initialElo, level: level };
+  var unit = String(data.unit || '');
+  getSheet('Players').appendRow([id, data.name, initialElo, 0, 0, 0, now, data.avatar || '', initialElo, level, unit]);
+  return { id: id, name: data.name, elo: initialElo, matches: 0, wins: 0, losses: 0, createdAt: now, avatar: data.avatar || '', initialElo: initialElo, level: level, unit: unit };
 }
 
 function updatePlayerLevel(data) {
@@ -131,6 +133,7 @@ function updatePlayerLevel(data) {
   if (rowIdx === -1) throw new Error('Player not found');
   if (data.level !== undefined) sh.getRange(rowIdx, 10).setValue(String(data.level));
   if (data.initialElo !== undefined) sh.getRange(rowIdx, 9).setValue(Number(data.initialElo));
+  if (data.unit !== undefined) sh.getRange(rowIdx, 11).setValue(String(data.unit));
   return { ok: true };
 }
 

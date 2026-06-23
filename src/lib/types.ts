@@ -11,6 +11,7 @@ export interface Player {
   avatar?: string;
   initialElo?: number;
   level?: PlayerLevel;
+  unit?: string;
 }
 
 export interface Match {

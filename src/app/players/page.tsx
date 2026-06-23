@@ -30,6 +30,8 @@ export default function PlayersPage() {
   const [avatarPreview, setAvatarPreview] = useState('');
   const [initialElo, setInitialElo] = useState('1200');
   const [level, setLevel] = useState<PlayerLevel>('');
+  const [unit, setUnit] = useState('');
+  const [unitFilter, setUnitFilter] = useState('');
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
@@ -56,11 +58,11 @@ export default function PlayersPage() {
     setSubmitting(true); setError('');
     const res = await fetch('/api/players', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: name.trim(), avatar: avatarPreview, initialElo: Number(initialElo) || 1200, level }),
+      body: JSON.stringify({ name: name.trim(), avatar: avatarPreview, initialElo: Number(initialElo) || 1200, level, unit: unit.trim() }),
     });
     const data = await res.json();
     if (res.ok) {
-      setName(''); setAvatarPreview(''); setInitialElo('1200'); setLevel('');
+      setName(''); setAvatarPreview(''); setInitialElo('1200'); setLevel(''); setUnit('');
       setPlayers((prev) => [...prev, data].sort((a, b) => b.elo - a.elo));
     } else setError(data.error || 'Lỗi');
     setSubmitting(false);
@@ -84,7 +86,18 @@ export default function PlayersPage() {
     });
   };
 
+  const updateUnit = async (playerId: string, newUnit: string) => {
+    setPlayers((prev) => prev.map((p) => (p.id === playerId ? { ...p, unit: newUnit } : p)));
+    await fetch('/api/players', {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: playerId, unit: newUnit }),
+    });
+  };
+
+  const units = Array.from(new Set(players.map((p) => p.unit).filter(Boolean))) as string[];
+
   const maxElo = players.length ? players[0].elo : 1200;
+  const filteredPlayers = unitFilter ? players.filter((p) => p.unit === unitFilter) : players;
 
   return (
     <div className="animate-fade-in">
@@ -150,6 +163,17 @@ export default function PlayersPage() {
             </select>
           </div>
 
+          {/* Unit */}
+          <div className="w-36">
+            <label className="text-xs font-semibold text-slate-500 block mb-1.5">Đơn vị</label>
+            <input list="unit-suggestions" className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+              placeholder="VD: Ban KT"
+              value={unit} onChange={(e) => setUnit(e.target.value)} />
+            <datalist id="unit-suggestions">
+              {units.map((u) => <option key={u} value={u} />)}
+            </datalist>
+          </div>
+
           <button onClick={addPlayer} disabled={submitting || !name.trim()}
             className="bg-blue-600 text-white px-5 py-2.5 rounded-xl text-sm font-bold hover:bg-blue-700 active:scale-95 transition-all disabled:opacity-40 flex-shrink-0">
             {submitting ? '...' : '+ Thêm'}
@@ -160,6 +184,22 @@ export default function PlayersPage() {
 
       <input ref={editFileRef} type="file" accept="image/*" className="hidden"
         onChange={(e) => { const f = e.target.files?.[0]; if (f && editingAvatar) handleAvatarFile(f, (d) => updateAvatar(editingAvatar, d)); e.target.value = ''; }} />
+
+      {/* Unit filter */}
+      {units.length > 0 && (
+        <div className="flex gap-2 mb-5 flex-wrap">
+          <button onClick={() => setUnitFilter('')}
+            className={`px-3 py-1.5 rounded-full text-sm font-semibold transition-all ${!unitFilter ? 'bg-blue-600 text-white' : 'bg-white text-slate-600 border border-slate-200 hover:border-blue-300'}`}>
+            Tất cả ({players.length})
+          </button>
+          {units.map((u) => (
+            <button key={u} onClick={() => setUnitFilter(unitFilter === u ? '' : u)}
+              className={`px-3 py-1.5 rounded-full text-sm font-semibold transition-all ${unitFilter === u ? 'bg-blue-600 text-white' : 'bg-white text-slate-600 border border-slate-200 hover:border-blue-300'}`}>
+              {u} ({players.filter((p) => p.unit === u).length})
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* Player grid */}
       {loading ? (
@@ -172,14 +212,14 @@ export default function PlayersPage() {
             </div>
           ))}
         </div>
-      ) : players.length === 0 ? (
+      ) : filteredPlayers.length === 0 ? (
         <div className="card p-16 text-center text-slate-400">
           <p className="text-4xl mb-3">👤</p>
-          <p className="font-medium">Chưa có thành viên nào</p>
+          <p className="font-medium">{players.length === 0 ? 'Chưa có thành viên nào' : 'Không có thành viên nào trong đơn vị này'}</p>
         </div>
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-          {players.map((p, i) => {
+          {filteredPlayers.map((p, i) => {
             const winRate = p.matches > 0 ? Math.round((p.wins / p.matches) * 100) : null;
             const eloPct = Math.round((p.elo / Math.max(maxElo, 1)) * 100);
             const eloChange = p.initialElo ? p.elo - p.initialElo : 0;
@@ -226,6 +266,18 @@ export default function PlayersPage() {
 
                 {/* Name */}
                 <p className="font-bold text-slate-800 text-sm leading-tight truncate w-full text-center">{p.name}</p>
+
+                {/* Unit */}
+                {isLoggedIn ? (
+                  <input
+                    className="text-center text-xs text-slate-400 bg-transparent border-b border-transparent hover:border-slate-200 focus:border-blue-400 focus:outline-none w-full truncate"
+                    placeholder="+ Đơn vị"
+                    defaultValue={p.unit || ''}
+                    onBlur={(e) => { if (e.target.value !== (p.unit || '')) updateUnit(p.id, e.target.value.trim()); }}
+                  />
+                ) : p.unit ? (
+                  <span className="text-xs text-slate-400 truncate">{p.unit}</span>
+                ) : null}
 
                 {/* ELO block */}
                 <div className="w-full bg-slate-50 rounded-xl px-3 py-2 text-center">

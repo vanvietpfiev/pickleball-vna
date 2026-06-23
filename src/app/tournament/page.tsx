@@ -57,6 +57,9 @@ export default function TournamentListPage() {
   const [autoPairs, setAutoPairs] = useState<{ a: string; b: string }[] | null>(null);
   const [teamNames, setTeamNames] = useState<Record<string, string>>({});
 
+  // Step 2: unit filter
+  const [playerUnitFilter, setPlayerUnitFilter] = useState('');
+
   // Step 3: group assign
   const [participants, setParticipants] = useState<TParticipant[]>([]);
   const [groupAssign, setGroupAssign] = useState<Record<string, number>>({});
@@ -421,14 +424,34 @@ export default function TournamentListPage() {
                       <span className="text-gray-400 font-normal"> / {players.length}</span>
                     </p>
                     <div className="flex gap-2">
-                      <button onClick={() => { setSelectedIds(players.map((p) => p.id)); setAutoPairs(null); }}
+                      <button onClick={() => { const ids = playerUnitFilter ? players.filter(p => p.unit === playerUnitFilter).map(p => p.id) : players.map((p) => p.id); setSelectedIds(ids); setAutoPairs(null); }}
                         className="text-xs text-blue-600 border border-blue-200 px-2.5 py-1 rounded-full hover:bg-blue-50">Chọn tất cả</button>
                       <button onClick={() => { setSelectedIds([]); setFixedPairs([]); setAutoPairs(null); }}
                         className="text-xs text-gray-500 border border-gray-200 px-2.5 py-1 rounded-full hover:bg-gray-50">Bỏ chọn</button>
                     </div>
                   </div>
+
+                  {/* Unit filter */}
+                  {(() => {
+                    const units = Array.from(new Set(players.map(p => p.unit).filter(Boolean))) as string[];
+                    return units.length > 0 ? (
+                      <div className="flex gap-1.5 mb-3 flex-wrap">
+                        <button onClick={() => setPlayerUnitFilter('')}
+                          className={`px-2.5 py-1 rounded-full text-xs font-semibold transition-all ${!playerUnitFilter ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
+                          Tất cả
+                        </button>
+                        {units.map((u) => (
+                          <button key={u} onClick={() => setPlayerUnitFilter(playerUnitFilter === u ? '' : u)}
+                            className={`px-2.5 py-1 rounded-full text-xs font-semibold transition-all ${playerUnitFilter === u ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
+                            {u}
+                          </button>
+                        ))}
+                      </div>
+                    ) : null;
+                  })()}
+
                   <div className="flex flex-wrap gap-2">
-                    {players.map((pl) => {
+                    {(playerUnitFilter ? players.filter(p => p.unit === playerUnitFilter) : players).map((pl) => {
                       const sel = selectedIds.includes(pl.id);
                       const inFixed = fixedIds.has(pl.id);
                       const isPending = lockFirst === pl.id;
