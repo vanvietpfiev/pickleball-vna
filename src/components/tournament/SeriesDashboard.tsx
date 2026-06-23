@@ -181,6 +181,7 @@ export default function SeriesDashboard({ tournament, players, isLoggedIn, onSav
       generateSeriesKnockout(s.id, allGroups, groupMatches)
     );
     await onSave({ matches: [...groupMatches, ...koMatches], status: 'knockout' });
+    setActiveView('bracket');
   };
 
   const handleMatchResult = async (matchId: string, score1: number, score2: number) => {
