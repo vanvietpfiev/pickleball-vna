@@ -149,61 +149,57 @@ export function calcGroupStandings(
 }
 
 // ── Generate knockout bracket from group results ──────────────────
-// Seeding: A1 vs B2, B1 vs A2 (crossover to avoid same-group early rematch)
+// Cross-group circular seeding: group[i] #1 vs group[(i+1)%G] #2
+// 2 groups × 2 → 4 teams: SF1: 1A-2B, SF2: 1B-2A → Final
+// 4 groups × 2 → 8 teams: QF1: 1A-2B, QF2: 1B-2C, QF3: 1C-2D, QF4: 1D-2A → SF → Final
 
 export function generateKnockoutMatches(
   groups: TGroup[],
   groupMatches: TMatch[],
   format: TournamentFormat
 ): TMatch[] {
-  const n = format.advancePerGroup;
-  // Collect ranked participants per group
+  const n = format?.advancePerGroup ?? 2;
+  const G = groups.length;
+
   const ranked: Record<string, Standing[]> = {};
   for (const g of groups) {
-    const gMatches = groupMatches.filter((m) => m.groupName === g.name);
-    ranked[g.name] = calcGroupStandings(g.participantIds, gMatches);
+    const gm = groupMatches.filter((m) => m.groupName === g.name);
+    ranked[g.name] = calcGroupStandings(g.participantIds, gm);
   }
 
-  // Build advancing list: [rank][groupIndex]
-  const advancers: string[][] = [];
-  for (let rank = 0; rank < n; rank++) {
-    advancers[rank] = groups.map((g) => ranked[g.name]?.[rank]?.participantId ?? 'TBD');
-  }
+  // advancers[rank][groupIndex] = participantId
+  const advancers: string[][] = Array.from({ length: n }, (_, rank) =>
+    groups.map((g) => ranked[g.name]?.[rank]?.participantId ?? 'TBD')
+  );
 
-  // Total advancing teams
-  const totalTeams = groups.length * n;
+  const totalTeams = G * n;
   const matches: TMatch[] = [];
   let order = 0;
 
   if (totalTeams === 2) {
-    // Straight to final
-    matches.push(makeKOMatch('final', advancers[0][0], advancers[0][1] ?? advancers[1]?.[0] ?? 'TBD', order++));
+    matches.push(makeKOMatch('final', advancers[0][0], advancers[0][1] ?? 'TBD', order++));
   } else if (totalTeams === 4) {
-    // 2 SFs → Final (+ optional 3rd place)
-    // SF1: A1 vs B2 (or A1 vs A2 if 1 group)
-    const sf1p1 = advancers[0][0] ?? 'TBD';
-    const sf1p2 = groups.length >= 2 ? (advancers[1][1] ?? advancers[1][0] ?? 'TBD') : (advancers[1]?.[0] ?? 'TBD');
-    const sf2p1 = groups.length >= 2 ? (advancers[0][1] ?? advancers[0][0] ?? 'TBD') : (advancers[1]?.[1] ?? 'TBD');
-    const sf2p2 = advancers[1]?.[0] ?? advancers[0][1] ?? 'TBD';
-
-    matches.push(makeKOMatch('sf', sf1p1, sf1p2, order++));
-    matches.push(makeKOMatch('sf', sf2p1, sf2p2, order++));
-    if (format.hasThirdPlace) {
-      matches.push(makeKOMatch('3rd', 'TBD', 'TBD', order++));
+    if (n === 2) {
+      // Circular: SF[i] = 1[i] vs 2[(i+1)%G]
+      for (let i = 0; i < G; i++) {
+        matches.push(makeKOMatch('sf', advancers[0][i], advancers[1][(i + 1) % G], order++));
+      }
+    } else {
+      // 1 advance per group, 4 groups: 1A vs 1D, 1B vs 1C (cross-seeded)
+      matches.push(makeKOMatch('sf', advancers[0][0], advancers[0][3] ?? 'TBD', order++));
+      matches.push(makeKOMatch('sf', advancers[0][1], advancers[0][2] ?? 'TBD', order++));
     }
+    if (format?.hasThirdPlace) matches.push(makeKOMatch('3rd', 'TBD', 'TBD', order++));
     matches.push(makeKOMatch('final', 'TBD', 'TBD', order++));
   } else if (totalTeams === 8) {
-    // QF → SF → Final
-    // Seeding: A1 B2 C1 D2 | B1 A2 D1 C2
-    const seeds = buildSeeds8(groups, advancers);
-    for (let i = 0; i < 4; i++) {
-      matches.push(makeKOMatch('qf', seeds[i * 2] ?? 'TBD', seeds[i * 2 + 1] ?? 'TBD', order++));
+    // Circular QF: QF[i] = 1[i] vs 2[(i+1)%G] for i in 0..G-1
+    for (let i = 0; i < G; i++) {
+      matches.push(makeKOMatch('qf', advancers[0][i], advancers[1 % n][(i + 1) % G], order++));
     }
+    // SF1: W(QF0) vs W(QF1), SF2: W(QF2) vs W(QF3)
     matches.push(makeKOMatch('sf', 'TBD', 'TBD', order++));
     matches.push(makeKOMatch('sf', 'TBD', 'TBD', order++));
-    if (format.hasThirdPlace) {
-      matches.push(makeKOMatch('3rd', 'TBD', 'TBD', order++));
-    }
+    if (format?.hasThirdPlace) matches.push(makeKOMatch('3rd', 'TBD', 'TBD', order++));
     matches.push(makeKOMatch('final', 'TBD', 'TBD', order++));
   }
 
@@ -212,20 +208,6 @@ export function generateKnockoutMatches(
 
 function makeKOMatch(stage: TMatchStage, p1Id: string, p2Id: string, order: number): TMatch {
   return { id: `ko_${Date.now()}_${order}`, stage, p1Id, p2Id, played: false, order };
-}
-
-function buildSeeds8(groups: TGroup[], advancers: string[][]): string[] {
-  // Standard cross-seeding for 4 groups × 2
-  if (groups.length >= 4) {
-    return [
-      advancers[0][0], advancers[1][1] ?? 'TBD',
-      advancers[2][0], advancers[3][1] ?? 'TBD',
-      advancers[1][0], advancers[0][1] ?? 'TBD',
-      advancers[3][0], advancers[2][1] ?? 'TBD',
-    ];
-  }
-  // Fallback: just flatten
-  return advancers.flat();
 }
 
 // After a KO match is played, propagate winner to next round TBD slot

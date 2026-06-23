@@ -111,11 +111,14 @@ export default function TournamentDetail({ params }: { params: Promise<{ id: str
   const generateKnockout = async () => {
     if (!tournament) return;
     const groupMatches = tournament.matches.filter((m) => m.stage === 'group');
-    const koMatches = generateKnockoutMatches(
-      tournament.config.groups,
-      groupMatches,
-      tournament.config.format
-    );
+    const fmt = (tournament.config.format?.advancePerGroup != null)
+      ? tournament.config.format
+      : { advancePerGroup: 2, hasThirdPlace: false };
+    const koMatches = generateKnockoutMatches(tournament.config.groups, groupMatches, fmt);
+    if (koMatches.length === 0) {
+      alert('Không thể tạo bracket. Hãy đảm bảo đã nhập đủ kết quả vòng bảng.');
+      return;
+    }
     await save({ matches: [...groupMatches, ...koMatches], status: 'knockout' });
     setActiveTab('knockout');
   };
@@ -253,7 +256,7 @@ export default function TournamentDetail({ params }: { params: Promise<{ id: str
           </div>
 
           {/* Start/Generate buttons (non-round-robin, non-series only) */}
-          {!isRoundRobin && !isSeries && isLoggedIn && (status === 'setup' || (status === 'group_stage' && groupComplete && !hasKnockout)) && (
+          {!isRoundRobin && !isSeries && isLoggedIn && (status === 'setup' || (!hasKnockout && (status === 'group_stage' || status === 'knockout'))) && (
             <div className="mt-3 pt-3 border-t border-white/10 flex gap-2">
               {status === 'setup' && (
                 <button onClick={startGroupStage}
@@ -261,7 +264,7 @@ export default function TournamentDetail({ params }: { params: Promise<{ id: str
                   🚀 Bắt đầu vòng bảng
                 </button>
               )}
-              {status === 'group_stage' && groupComplete && !hasKnockout && (
+              {(status === 'group_stage' || status === 'knockout') && !hasKnockout && (
                 <button onClick={generateKnockout}
                   className="bg-orange-400/80 hover:bg-orange-400 text-white px-4 py-2 rounded-xl text-sm font-semibold transition-all">
                   ⚡ Tạo nhánh Knockout

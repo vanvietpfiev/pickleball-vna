@@ -403,7 +403,7 @@ export default function TournamentListPage() {
                     <label className="text-sm font-semibold text-gray-700 block mb-1.5">Số bảng</label>
                     <select className="border rounded-xl px-3 py-2.5 w-full text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
                       value={groupCount} onChange={(e) => setGroupCount(Number(e.target.value))}>
-                      {[1, 2, 3, 4].map((n) => <option key={n} value={n}>{n} bảng</option>)}
+                      {[1, 2, 3, 4, 5].map((n) => <option key={n} value={n}>{n} bảng</option>)}
                     </select>
                   </div>
                 </div>
@@ -414,30 +414,16 @@ export default function TournamentListPage() {
                     {([
                       { value: 'group_knockout', label: '🏆 Vòng bảng + Knockout', desc: 'Đấu vòng bảng rồi loại trực tiếp' },
                       { value: 'round_robin',    label: '⚽ Vòng tròn tính điểm', desc: 'Mỗi đội gặp tất cả đội còn lại' },
-                      { value: 'series_format',  label: '🎯 Series A+B', desc: '2 series Đôi Nam+Nam / Nam+Nữ, 4 bảng mỗi series' },
                     ] as const).map((m) => (
                       <button key={m.value} onClick={() => setTMode(m.value)}
                         className={`text-left p-3 rounded-xl border-2 transition-all ${
                           tMode === m.value ? 'border-blue-600 bg-blue-50' : 'border-gray-200 hover:border-gray-300'
-                        } ${m.value === 'series_format' ? 'col-span-2' : ''}`}>
+                        }`}>
                         <p className={`text-sm font-bold ${tMode === m.value ? 'text-blue-700' : 'text-gray-700'}`}>{m.label}</p>
                         <p className="text-xs text-gray-400 mt-0.5">{m.desc}</p>
                       </button>
                     ))}
                   </div>
-                  {tMode === 'series_format' && (
-                    <div className="mt-3 bg-blue-50 rounded-xl p-3 border border-blue-100">
-                      <label className="text-xs font-semibold text-blue-700 block mb-1.5">Số bảng mỗi series</label>
-                      <div className="flex gap-2">
-                        {[2, 3, 4].map((n) => (
-                          <button key={n} onClick={() => setSeriesGroupCount(n)}
-                            className={`flex-1 py-1.5 rounded-lg text-sm font-semibold border transition-all ${
-                              seriesGroupCount === n ? 'border-blue-600 bg-white text-blue-700 shadow-sm' : 'border-transparent text-blue-400'
-                            }`}>{n} bảng</button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
                 </div>
 
                 <div className={`bg-blue-50 rounded-xl p-4 border border-blue-100 ${tMode === 'round_robin' ? 'opacity-40 pointer-events-none' : ''}`}>
@@ -461,8 +447,9 @@ export default function TournamentListPage() {
                   <div className="mt-3 text-xs text-blue-600 bg-white rounded-lg px-3 py-2 border border-blue-100">
                     → {groupCount} bảng × top {advancePerGroup} = <strong>{totalAdvancing} đội</strong> vào knockout
                     {totalAdvancing === 2 && ' → Thẳng chung kết'}
-                    {totalAdvancing === 4 && ' → Bán kết + Chung kết'}
-                    {totalAdvancing === 8 && ' → Tứ kết + Bán kết + Chung kết'}
+                    {totalAdvancing === 4 && ' → Bán kết + Chung kết (vòng tròn)'}
+                    {totalAdvancing === 8 && ' → Tứ kết + Bán kết + Chung kết (vòng tròn)'}
+                    {totalAdvancing !== 2 && totalAdvancing !== 4 && totalAdvancing !== 8 && ' → Bracket tuỳ chỉnh'}
                   </div>
                 </div>
                 <div className="flex justify-end">
